@@ -1,0 +1,128 @@
+#
+# Author Jacob A. Psimos
+#
+
+# Fabric Clock
+set_property PACKAGE_PIN N18 [get_ports SYS_CLK]
+set_property IOSTANDARD LVCMOS33 [get_ports SYS_CLK]
+
+# Buttons and LEDs
+set_property PACKAGE_PIN P15 [get_ports LED_0]
+set_property PACKAGE_PIN U12 [get_ports LED_1]
+set_property PACKAGE_PIN P16 [get_ports BTN_0]
+set_property PACKAGE_PIN T12 [get_ports BTN_1]
+set_property IOSTANDARD LVCMOS33 [get_ports LED_0]
+set_property IOSTANDARD LVCMOS33 [get_ports LED_1]
+set_property IOSTANDARD LVCMOS33 [get_ports BTN_0]
+set_property IOSTANDARD LVCMOS33 [get_ports BTN_1]
+
+# PWMs
+set_property PACKAGE_PIN A20 [get_ports PWM_0];
+set_property PACKAGE_PIN B19 [get_ports PWM_1];
+set_property PACKAGE_PIN E19 [get_ports PWM_2];
+set_property IOSTANDARD LVCMOS33 [get_ports PWM_0]
+set_property IOSTANDARD LVCMOS33 [get_ports PWM_1]
+set_property IOSTANDARD LVCMOS33 [get_ports PWM_2]
+
+# IIC_RTC
+set_property PACKAGE_PIN B20 [get_ports IIC_RTC_sda_io]
+set_property PACKAGE_PIN J16 [get_ports IIC_RTC_scl_io]
+set_property PACKAGE_PIN H18 [get_ports RTC_INTR]
+set_property IOSTANDARD LVCMOS33 [get_ports RTC_INTR]
+set_property IOSTANDARD LVCMOS33 [get_ports IIC_RTC_scl_io]
+set_property IOSTANDARD LVCMOS33 [get_ports IIC_RTC_sda_io]
+set_property PULLTYPE PULLUP [get_ports RTC_INTR]
+
+# IIC_1
+set_property PACKAGE_PIN R16 [get_ports IIC_1_sda_io]
+set_property PACKAGE_PIN R17 [get_ports IIC_1_scl_io]
+set_property IOSTANDARD LVCMOS33 [get_ports IIC_1_sda_io]
+set_property IOSTANDARD LVCMOS33 [get_ports IIC_1_scl_io]
+set_property PULLTYPE PULLUP [get_ports IIC_1_sda_io]
+set_property PULLTYPE PULLUP [get_ports IIC_1_scl_io]
+
+# SPI_0
+set_property PACKAGE_PIN T16 [get_ports SPI_0_ss_io]
+set_property IOSTANDARD LVCMOS33 [get_ports SPI_0_io0_io]
+set_property IOSTANDARD LVCMOS33 [get_ports SPI_0_io1_io]
+set_property IOSTANDARD LVCMOS33 [get_ports SPI_0_sck_io]
+set_property IOSTANDARD LVCMOS33 [get_ports SPI_0_ss_io]
+set_property PULLTYPE PULLUP [get_ports SPI_0_ss_io]
+set_property PULLTYPE PULLUP [get_ports SPI_0_io0_io]
+set_property PULLTYPE PULLUP [get_ports SPI_0_io1_io]
+set_property PULLTYPE PULLUP [get_ports SPI_0_sck_io]
+set_property IOSTANDARD LVCMOS33 [get_ports SPI_0_ss1_o]
+set_property IOSTANDARD LVCMOS33 [get_ports SPI_0_ss2_o]
+set_property PULLTYPE PULLUP [get_ports SPI_0_ss2_o]
+set_property PULLTYPE PULLUP [get_ports SPI_0_ss1_o]
+set_property PACKAGE_PIN U17 [get_ports SPI_0_ss1_o]
+set_property PACKAGE_PIN W18 [get_ports SPI_0_ss2_o]
+set_property PACKAGE_PIN W19 [get_ports SPI_0_sck_io]
+set_property PACKAGE_PIN Y18 [get_ports SPI_0_io0_io]
+set_property PACKAGE_PIN Y19 [get_ports SPI_0_io1_io]
+
+# UART_1
+set_property PACKAGE_PIN N17 [get_ports UART_1_txd]
+set_property PACKAGE_PIN P18 [get_ports UART_1_rxd]
+set_property IOSTANDARD LVCMOS33 [get_ports UART_1_txd]
+set_property IOSTANDARD LVCMOS33 [get_ports UART_1_rxd]
+set_property PULLTYPE PULLUP [get_ports UART_1_rxd]
+
+# AUX GPIO_0
+set_property PACKAGE_PIN T17 [get_ports {AUX_GPIO_tri_io[0]}]
+set_property PACKAGE_PIN R18 [get_ports {AUX_GPIO_tri_io[1]}]
+set_property PACKAGE_PIN V12 [get_ports {AUX_GPIO_tri_io[2]}]
+set_property PACKAGE_PIN W13 [get_ports {AUX_GPIO_tri_io[3]}]
+set_property PACKAGE_PIN T14 [get_ports {AUX_GPIO_tri_io[4]}]
+set_property PACKAGE_PIN T15 [get_ports {AUX_GPIO_tri_io[5]}]
+set_property PACKAGE_PIN T11 [get_ports {AUX_GPIO_tri_io[6]}]
+set_property PACKAGE_PIN T10 [get_ports {AUX_GPIO_tri_io[7]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {AUX_GPIO_tri_io[0]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {AUX_GPIO_tri_io[1]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {AUX_GPIO_tri_io[2]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {AUX_GPIO_tri_io[3]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {AUX_GPIO_tri_io[4]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {AUX_GPIO_tri_io[5]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {AUX_GPIO_tri_io[6]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {AUX_GPIO_tri_io[7]}]
+set_property PULLUP true [get_ports {AUX_GPIO_tri_io[*]}]
+
+# Ethernet
+set_property IOSTANDARD LVCMOS33 [get_ports {MII_TXD[3]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {MII_TXD[2]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {MII_TXD[1]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {MII_TXD[0]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {MII_RXD[3]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {MII_RXD[2]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {MII_RXD[1]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {MII_RXD[0]}]
+set_property IOSTANDARD LVCMOS33 [get_ports MII_RX_DV]
+set_property IOSTANDARD LVCMOS33 [get_ports {MII_TX_EN[0]}]
+set_property IOSTANDARD LVCMOS33 [get_ports MII_MDIO_mdio_io]
+set_property IOSTANDARD LVCMOS33 [get_ports MII_MDIO_mdc]
+set_property IOSTANDARD LVCMOS33 [get_ports MII_RX_CLK]
+set_property IOSTANDARD LVCMOS33 [get_ports MII_TX_CLK]
+set_property PACKAGE_PIN K17 [get_ports MII_RX_CLK]
+set_property PACKAGE_PIN L14 [get_ports MII_TX_CLK]
+set_property PACKAGE_PIN K18 [get_ports MII_RX_DV]
+set_property PACKAGE_PIN J14 [get_ports {MII_RXD[0]}]
+set_property PACKAGE_PIN K14 [get_ports {MII_RXD[1]}]
+set_property PACKAGE_PIN M18 [get_ports {MII_RXD[2]}]
+set_property PACKAGE_PIN M17 [get_ports {MII_RXD[3]}]
+set_property PACKAGE_PIN N16 [get_ports {MII_TX_EN[0]}]
+set_property PACKAGE_PIN M14 [get_ports {MII_TXD[0]}]
+set_property PACKAGE_PIN L15 [get_ports {MII_TXD[1]}]
+set_property PACKAGE_PIN M15 [get_ports {MII_TXD[2]}]
+set_property PACKAGE_PIN N15 [get_ports {MII_TXD[3]}]
+set_property PACKAGE_PIN J15 [get_ports MII_MDIO_mdio_io]
+set_property PACKAGE_PIN G14 [get_ports MII_MDIO_mdc]
+set_property IOSTANDARD LVCMOS33 [get_ports MII_PHY_RSTN]
+set_property PACKAGE_PIN J20 [get_ports MII_PHY_RSTN]
+set_property SLEW FAST [get_ports {MII_TXD[3]}]
+set_property SLEW FAST [get_ports {MII_TXD[2]}]
+set_property SLEW FAST [get_ports {MII_TXD[1]}]
+set_property SLEW FAST [get_ports {MII_TXD[0]}]
+set_property SLEW FAST [get_ports {MII_TX_EN[0]}]
+set_property SLEW FAST [get_ports MII_MDIO_mdio_io]
+set_property SLEW FAST [get_ports MII_MDIO_mdc]
+set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets MII_TX_CLK_IBUF]
