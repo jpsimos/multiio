@@ -8,9 +8,11 @@
 #ifndef SRC_XADC_H_
 #define SRC_XADC_H_
 
-#include "Interrupts.h"
 #include "xadcps.h"
+#include "Helpers.h"
 #include "Middleware.h"
+
+using namespace Helpers;
 
 class XAdc : public Middleware
 {

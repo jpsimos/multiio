@@ -2,14 +2,18 @@
  * XAdc.cpp
  *
  *  Created on: Feb 22, 2025
- *      Author: jacob a psimos
+ *      Author: jacob
  */
 
-#include "xadcps.h"
-#include "XAdc.h"
 #include <iostream>
 #include <string>
 #include <limits>
+#include "xparameters.h"
+#include "XAdc.h"
+#include "InterruptManager.h"
+#include "Helpers.h"
+
+using namespace Helpers;
 
 XAdc* XAdc::CreateInstance(const unsigned short deviceId, const unsigned char intrId)
 {
@@ -44,7 +48,7 @@ XAdc::XAdc(const unsigned short deviceId, const unsigned char intrId) :
 		RUNTIME_ERROR("CfgInitialize = %d", result);
 	}
 
-	Interrupts::GetInstance()->Attach(m_intrId,
+	InterruptManager::GetInstance()->Attach(m_intrId,
 		reinterpret_cast<Xil_InterruptHandler>(XAdc::HandleIsr), this, true, 0xA0, false);
 
 	XAdcPs_IntrClear(&m_adc, XADCPS_INTX_OT_MASK | XADCPS_INTX_ALM_ALL_MASK);
@@ -54,7 +58,7 @@ XAdc::XAdc(const unsigned short deviceId, const unsigned char intrId) :
 XAdc::~XAdc()
 {
 	XAdcPs_IntrDisable(&m_adc, XADCPS_INTX_ALL_MASK);
-	Interrupts::GetInstance()->Detach(m_intrId);
+	InterruptManager::GetInstance()->Detach(m_intrId);
 }
 
 void XAdc::HandleIsr(XAdc* adcPtr)

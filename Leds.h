@@ -2,14 +2,13 @@
  * Leds.h
  *
  *  Created on: Jun 7, 2026
- *      Author: jacob a psimos
+ *      Author: jpsim
  */
 
 #ifndef SRC_LEDS_H_
 #define SRC_LEDS_H_
 
 #include "Middleware.h"
-#include "GpioController.h"
 
 class Leds: public Middleware
 {

@@ -5,6 +5,7 @@
  *      Author: Jacob A. Psimos
  */
 
+#include "InterruptManager.h"
 #include "GpioController.h"
 
 GpioController* GpioController::CreateInstance(
@@ -32,10 +33,10 @@ GpioController::GpioController(const unsigned short deviceId, const unsigned cha
 	: Middleware(Middleware::AbstractType::PS_GPIO_CONTROLLER, MW_PRIORITY_NORMAL),
 	  m_deviceId(deviceId),
 	  m_intrId(intrId),
-	  m_gpioConfigPtr(nullptr),
-	  m_gpioIsrs()
+	  m_gpioConfigPtr(nullptr)
 {
 	int result;
+
 
 	m_gpioConfigPtr = XGpioPs_LookupConfig(m_deviceId);
 
@@ -54,7 +55,7 @@ GpioController::GpioController(const unsigned short deviceId, const unsigned cha
 	XGpioPs_SetCallbackHandler(&m_gpio, this,
 		reinterpret_cast<XGpioPs_Handler>(GpioController::GpioIsr));
 
-	Interrupts::GetInstance()->Attach(m_intrId,
+	InterruptManager::GetInstance()->Attach(m_intrId,
 		reinterpret_cast<Xil_InterruptHandler>(XGpioPs_IntrHandler), &m_gpio, true, 0xA0, false);
 }
 
@@ -64,41 +65,14 @@ GpioController::~GpioController()
 	{
 		XGpioPs_IntrDisable(&m_gpio, bank, 0xFFFFFFFF);
 	}
-	Interrupts::GetInstance()->Detach(m_intrId);
+	InterruptManager::GetInstance()->Detach(m_intrId);
 }
 
 void GpioController::GpioIsr(GpioController* gpioControllerPtr, unsigned int bank, unsigned int status)
 {
 	if(gpioControllerPtr != nullptr)
 	{
-		for(std::pair<void(*)(void*), void*>& gpioIsrPair : gpioControllerPtr->m_gpioIsrs)
-		{
-			if(gpioIsrPair.first != nullptr)
-			{
-				gpioIsrPair.first(gpioIsrPair.second);
-			}
-		}
-	}
-}
-
-void GpioController::AddIsrHandler(void(*gpioIsr)(void*), void* arg)
-{
-	m_gpioIsrs.push_back({gpioIsr, arg});
-}
-
-void GpioController::RemoveIsrHandler(void(*gpioIsr)(void*))
-{
-	auto iter = std::find_if(
-		m_gpioIsrs.begin(),
-		m_gpioIsrs.end(),
-		[gpioIsr](const std::pair<void(*)(void*), void*>& gpioIsrPair) {
-			return static_cast<bool>(gpioIsrPair.first == gpioIsr);
-		}
-	);
-
-	if(iter != m_gpioIsrs.end())
-	{
-		m_gpioIsrs.erase(iter);
+		nop();
 	}
 }
 
@@ -155,7 +129,8 @@ void GpioController::ClearPin(const unsigned char pin)
 	}
 }
 
-unsigned char GpioController::ReadPin(const unsigned char pin)
+unsigned char GpioController::GetPin(const unsigned char pin)
 {
 	return static_cast<unsigned char>(XGpioPs_ReadPin(&m_gpio, static_cast<u32>(pin)));
 }
+

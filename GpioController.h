@@ -10,9 +10,6 @@
 
 #include "xgpiops.h"
 #include "Middleware.h"
-#include <vector>
-#include <algorithm>
-#include "Interrupts.h"
 
 #define PS_GPIO_T    ~0
 #define PS_GPIO_IN   0
@@ -34,9 +31,6 @@
 #define GEM0_PHY_RSTN_PIN     ((EMIO_OFFSET) + 4)
 #define RTC_INTR_PIN          ((EMIO_OFFSET) + 5)
 
-// Typedefs
-typedef void (*GpioIsr)(void* arg);
-
 class GpioController: public Middleware
 {
 public:
@@ -54,20 +48,17 @@ private:
 	static void GpioIsr(GpioController* gpioControllerPtr, unsigned int bank, unsigned int status);
 
 public:
-	void AddIsrHandler(void(*gpioIsr)(void*), void* arg);
-	void RemoveIsrHandler(void(*gpioIsr)(void*));
 	void SetPinMode(const unsigned char pin, const unsigned char mode, const unsigned char value = PS_GPIO_T);
 	unsigned char GetPinMode(const unsigned char pin);
 	void SetPin(const unsigned char pin);
 	void ClearPin(const unsigned char pin);
-	unsigned char ReadPin(const unsigned char pin);
+	unsigned char GetPin(const unsigned char pin);
 
 private:
 	const unsigned short m_deviceId;
 	const unsigned char m_intrId;
 	XGpioPs_Config* m_gpioConfigPtr;
 	XGpioPs m_gpio;
-	std::vector<std::pair<void(*)(void*), void*>> m_gpioIsrs;
 };
 
 #endif /* SRC_GPIOCONTROLLER_H_ */

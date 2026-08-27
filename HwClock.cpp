@@ -9,8 +9,8 @@
 #include <string>
 #include "xparameters.h"
 #include "HwClock.h"
+#include "InterruptManager.h"
 #include "GpioController.h"
-#include "Interrupts.h"
 
 using namespace Helpers;
 
@@ -66,7 +66,7 @@ HwClock::HwClock(
 
 	XIicPs_SetStatusHandler(&m_iic, this, reinterpret_cast<XIicPs_IntrHandler>(HwClock::IicIsr));
 
-	Interrupts::GetInstance()->Attach(m_iicIntrId,
+	InterruptManager::GetInstance()->Attach(m_iicIntrId,
 		reinterpret_cast<Xil_InterruptHandler>(XIicPs_MasterInterruptHandler), &m_iic, true, 0xA0, false);
 
 	status = XIicPs_SetSClk(&m_iic, 400000);
@@ -92,7 +92,7 @@ HwClock::HwClock(
 HwClock::~HwClock()
 {
 	XIicPs_Abort(&m_iic);
-	Interrupts::GetInstance()->Detach(m_iicIntrId);
+	InterruptManager::GetInstance()->Detach(m_iicIntrId);
 }
 
 bool HwClock::BusBusyWait(const unsigned int timeoutMicros)

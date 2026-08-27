@@ -6,6 +6,8 @@
  */
 
 #include "Buttons.h"
+#include "Leds.h"
+#include "GpioController.h"
 
 Buttons* Buttons::CreateInstance()
 {
@@ -34,24 +36,17 @@ Buttons::Buttons() :
 	GpioController::GetInstance()->SetPinMode(PS_BUTTON_PIN, PS_GPIO_IN);
 	GpioController::GetInstance()->SetPinMode(PL_BUTTON0_PIN, PS_GPIO_IN);
 	GpioController::GetInstance()->SetPinMode(PL_BUTTON1_PIN, PS_GPIO_IN);
-	GpioController::GetInstance()->AddIsrHandler(reinterpret_cast<void(*)(void*)>(Buttons::GpioIsr), this);
 }
 
 Buttons::~Buttons()
 {
-	GpioController::GetInstance()->RemoveIsrHandler(reinterpret_cast<void(*)(void*)>(Buttons::GpioIsr));
-}
-
-void Buttons::GpioIsr(Buttons* buttonsPtr)
-{
-	return;
 }
 
 void Buttons::Loop()
 {
-	bool psButton = GpioController::GetInstance()->ReadPin(PS_BUTTON_PIN);
-	bool plButton0 = GpioController::GetInstance()->ReadPin(PL_BUTTON0_PIN);
-	bool plButton1 = GpioController::GetInstance()->ReadPin(PL_BUTTON1_PIN);
+	bool psButton = GpioController::GetInstance()->GetPin(PS_BUTTON_PIN);
+	bool plButton0 = GpioController::GetInstance()->GetPin(PL_BUTTON0_PIN);
+	bool plButton1 = GpioController::GetInstance()->GetPin(PL_BUTTON1_PIN);
 
 	if(psButton != m_psButtonStatus)
 	{

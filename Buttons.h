@@ -9,8 +9,6 @@
 #define SRC_BUTTONS_H_
 
 #include "Middleware.h"
-#include "GpioController.h"
-#include "Interrupts.h"
 
 class Buttons: public Middleware
 {
@@ -24,7 +22,6 @@ public:
 private:
 	Buttons();
 	virtual ~Buttons();
-	static void GpioIsr(Buttons* buttonsPtr);
 
 public:
 	virtual void Loop();

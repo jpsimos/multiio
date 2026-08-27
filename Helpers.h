@@ -27,6 +27,11 @@
 #include "xtime_l.h"
 #include "sleep.h"
 
+#define MULTIIO_DEBUG
+
+// ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖   Definitions ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖
+#define ALIGN_LOW                                1
+#define ALIGN_HIGH                               0
 #define COUNTS_PER_MICROSECOND                   (((long long)XPAR_CPU_CORTEXA9_CORE_CLOCK_FREQ_HZ / 2LL) / 1000000LL)
 #define CRC32_DEFAULT_BIT_REFLECTED_POLYNOMIAL   0xEDB88320
 #define CRC32_DEFAULT                            0xFFFFFFFF
@@ -35,26 +40,34 @@
 #define CRC16_DEFAULT                            0xFFFF
 #define CRC16_XOR                                0x0000
 
+// ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖  Instruction Macros ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖
 #define nop()                               __asm__ __volatile__("nop")
 #define sev()                               __asm__ __volatile__("sev" : : : "memory")
 #define ISPOWEROF2(x)                       !(((x) != 0) && ((x) & ((x) - 1)))
 #define ISODD(x)                            !!((x) & 1)
 #define ISEVEN(x)                           !!((~(x)) & 1)
-#define ALIGN_LOW(val, alignval) \
-	(((val) + (alignval)) & (((alignval) - 1) - (alignval)))
-#define ALIGN_HIGH(val, alignval) \
-	(((val) + (alignval)) & (((alignval) - 1)))
+#define ALIGN(val, alignval, loworhigh) \
+	((((val) + (alignval)) & ~((alignval) - 1)) - ((alignval) * (loworhigh)))
 
+// ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖  Logging/Exception Macros ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖
+#ifdef MULTIIO_DEBUG
 #define DEBUG_LOG(fmt, ...) do { \
 		std::cout << Text::Stringf(ANSI_YELLOW "[%u,%.8lf] %s:%d %s " ANSI_RESET fmt "\n", \
 			XPAR_CPU_ID, Time::Seconds(), __BASE_FILE__, __LINE__, __func__, ##__VA_ARGS__); } while(0)
+
 #define DEBUG_ERROR(fmt, ...) do { \
 		std::cout << Text::Stringf(ANSI_RED "[%u,%.8lf] %s:%d %s " ANSI_RESET fmt "\n", \
 			XPAR_CPU_ID, Time::Seconds(), __BASE_FILE__, __LINE__, __func__, ##__VA_ARGS__); } while(0)
+#else
+#define DEBUG_LOG(fmt, ...) do {} while(0)
+#define DEBUG_ERROR(fmt, ...) do {} while(0)
+#endif
+
 #define RUNTIME_ERROR(fmt, ...) do { throw std::runtime_error( \
 		Text::Stringf("[%u,%.8lf] %s:%d %s " fmt "\n", \
 				XPAR_CPU_ID, Time::Seconds(), __BASE_FILE__, __LINE__, __func__, ##__VA_ARGS__)); } while(0)
 
+// ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖  ANSI Terminal Sequence Defs ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖
 #define ANSI_HARDRESET         "\e[>0n\e[>1n\e[>2n\e[>3n\e[>4n\e[>0m\e[>1m\e[>2m\e[>3m\e[>4m\x1b[H\x1b[0J\x1b[0m\x1b[0G"
 #define ANSI_CLEARSCREEN       "\x1b[H\x1b[0J\x1b[0m"
 #define ANSI_COLZERO           "\x1b[0G"
@@ -78,8 +91,11 @@
 #define ANSI_LIGHT_CYAN        "\x1b\x5b\x30\x3b\x39\x36\x6d"
 #define ANSI_LIGHT_YELLOW      "\x1b\x5b\x30\x3b\x39\x33\x6d"
 
+// ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖  Symbols  ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖
 #define DEGREE_SYMBOL          "\xc2\xb0"
 #define MU_SYMBOL              "\xce\xbc"
+
+// ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖
 
 namespace Helpers
 {
