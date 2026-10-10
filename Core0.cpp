@@ -8,6 +8,9 @@
 #include "Helpers.h"
 #include "InterruptManager.h"
 #include "HwClock.h"
+#include "CanController.h"
+#include "UsbController.h"
+#include "UartController.h"
 #include <iostream>
 #include <string>
 
@@ -18,9 +21,14 @@ void ConfigureOcm();
 
 int main(void)
 {
-	// ConfigureOcm();
+	ConfigureOcm();
 
 	InterruptManager::CreateInstance();
+
+	UartController::CreateInstance(
+		XPAR_XUARTPS_0_DEVICE_ID,
+		XPAR_XUARTPS_0_INTR
+	)->Register();
 
 	HwClock::CreateInstance(
 		XPAR_AXI_IIC_RTC_DEVICE_ID,
@@ -30,19 +38,29 @@ int main(void)
 		0x68U
 	)->Register();
 
+	CanController::CreateInstance(
+		XPAR_XCANPS_0_DEVICE_ID,
+		XPAR_PS7_CAN_0_INTR
+	)->Register();
+
+	CanController::CreateInstance(
+		XPAR_XCANPS_1_DEVICE_ID,
+		XPAR_PS7_CAN_1_INTR
+	)->Register();
+
+	UsbController::CreateInstance(
+		XPAR_PS7_USB_0_DEVICE_ID,
+		XPAR_PS7_USB_0_INTR
+	)->Register();
+
 	StartCpu1();
 
 	std::cout << "Core 0 started.\n";
+	std::cout << "RTC: " << HwClock::GetInstance()->GetDateTimeString() << '\n';
 
 	do
 	{
-		static Time::Stopwatch lastTime;
-
-		if(lastTime >= 1.0)
-		{
-			std::cout << HwClock::GetInstance()->GetDateTimeString() << '\n';
-			lastTime = 0;
-		}
+		Middleware::LoopRegisteredMiddlewares();
 	}
 	while(1 + 1 == 2);
 

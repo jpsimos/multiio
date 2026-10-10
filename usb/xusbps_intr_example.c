@@ -43,115 +43,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef SDT
-#include "xscugic.h"
-#else
-#include "xinterrupt_wrap.h"
-#endif
-
-/************************** Constant Definitions *****************************/
 #define MEMORY_SIZE (64 * 1024)
-#ifdef __ICCARM__
-#pragma data_alignment = 32
-u8 Buffer[MEMORY_SIZE];
-#else
 u8 Buffer[MEMORY_SIZE] ALIGNMENT_CACHELINE;
-#endif
+static volatile int NumIrqs = 0;
+static volatile int NumReceivedFrames = 0;
 
-/**************************** Type Definitions *******************************/
-
-/***************** Macros (Inline Functions) Definitions *********************/
-#ifdef SDT
-#define USBPS_BASEADDR		XPS_USB0_BASEADDR /* USBPS base address */
-#endif
-
-/************************** Function Prototypes ******************************/
-#ifndef SDT
-static int UsbIntrExample(XScuGic *IntcInstancePtr, XUsbPs *UsbInstancePtr,
-			  u16 UsbDeviceId, u16 UsbIntrId);
-static void UsbDisableIntrSystem(XScuGic *IntcInstancePtr, u16 UsbIntrId);
-static int UsbSetupIntrSystem(XScuGic *IntcInstancePtr,
-			      XUsbPs *UsbInstancePtr, u16 UsbIntrId);
-#else
-static int UsbIntrExample(XUsbPs *UsbInstancePtr, UINTPTR BaseAddress);
-#endif
-
-static void UsbIntrHandler(void *CallBackRef, u32 Mask);
 static void XUsbPs_Ep0EventHandler(void *CallBackRef, u8 EpNum,
 				   u8 EventType, void *Data);
 static void XUsbPs_Ep1EventHandler(void *CallBackRef, u8 EpNum,
 				   u8 EventType, void *Data);
 
-/************************** Variable Definitions *****************************/
-
-/* The instances to support the device drivers are global such that the
- * are initialized to zero each time the program runs.
- */
-static XScuGic IntcInstance;	/* The instance of the IRQ Controller */
-static XUsbPs UsbInstance;	/* The instance of the USB Controller */
-
-static volatile int NumIrqs = 0;
-static volatile int NumReceivedFrames = 0;
-
-
-/*****************************************************************************/
-/**
- *
- * Main function to call the USB interrupt example.
- *
- * @param	None
- *
- * @return
- * 		- XST_SUCCESS if successful
- * 		- XST_FAILURE on error
- *
- ******************************************************************************/
-
-int xusbps_intr_example_main(void)
-{
-	int Status;
-
-	/* Run the USB Interrupt example.*/
-#ifndef SDT
-	Status = UsbIntrExample(&IntcInstance, &UsbInstance,
-				XPAR_XUSBPS_0_DEVICE_ID, XPAR_XUSBPS_0_INTR);
-#else
-	Status = UsbIntrExample(&UsbInstance, USBPS_BASEADDR);
-#endif
-	if (Status != XST_SUCCESS) {
-		return XST_FAILURE;
-	}
-
-	return XST_SUCCESS;
-}
-
-/*****************************************************************************/
-/**
- *
- * This function does a minimal DEVICE mode setup on the USB device and driver
- * as a design example. The purpose of this function is to illustrate how to
- * set up a USB flash disk emulation system.
- *
- *
- * @param	IntcInstancePtr is a pointer to the instance of the INTC driver.
- * @param	UsbInstancePtr is a pointer to the instance of USB driver.
- * @param	UsbDeviceId is the Device ID of the USB Controller and is the
- * 		XPAR_<USB_instance>_DEVICE_ID value from xparameters.h.
- * @param	UsbIntrId is the Interrupt Id and is typically
- * 		XPAR_<INTC_instance>_<USB_instance>_IP2INTC_IRPT_INTR value
- * 		from xparameters.h.
- *
- * @return
- * 		- XST_SUCCESS if successful
- * 		- XST_FAILURE on error
- *
- ******************************************************************************/
-#ifndef SDT
-static int UsbIntrExample(XScuGic *IntcInstancePtr, XUsbPs *UsbInstancePtr,
-			  u16 UsbDeviceId, u16 UsbIntrId)
-#else
-static int UsbIntrExample(XUsbPs *UsbInstancePtr, UINTPTR BaseAddress)
-#endif
+int UsbStorage(XUsbPs *UsbInstancePtr, XUsbPs_Config* UsbConfigPtr)
 {
 	int	Status;
 	u8	*MemPtr = NULL;
@@ -163,49 +65,7 @@ static int UsbIntrExample(XUsbPs *UsbInstancePtr, UINTPTR BaseAddress)
 	 */
 	const u8 NumEndpoints = 2;
 
-	XUsbPs_Config		*UsbConfigPtr;
 	XUsbPs_DeviceConfig	DeviceConfig;
-
-	/* Initialize the USB driver so that it's ready to use,
-	 * specify the controller ID that is generated in xparameters.h
-	 */
-#ifndef SDT
-	UsbConfigPtr = XUsbPs_LookupConfig(UsbDeviceId);
-#else
-	UsbConfigPtr = XUsbPs_LookupConfig(BaseAddress);
-#endif
-	if (NULL == UsbConfigPtr) {
-		goto out;
-	}
-
-
-	/* We are passing the physical base address as the third argument
-	 * because the physical and virtual base address are the same in our
-	 * example.  For systems that support virtual memory, the third
-	 * argument needs to be the virtual base address.
-	 */
-	Status = XUsbPs_CfgInitialize(UsbInstancePtr,
-				      UsbConfigPtr,
-				      UsbConfigPtr->BaseAddress);
-	if (XST_SUCCESS != Status) {
-		goto out;
-	}
-
-	/* Set up the interrupt subsystem.
-	 */
-#ifndef SDT
-	Status = UsbSetupIntrSystem(IntcInstancePtr,
-				    UsbInstancePtr,
-				    UsbIntrId);
-#else
-	Status = XSetupInterruptSystem(UsbInstancePtr, &XUsbPs_IntrHandler,
-				       UsbConfigPtr->IntrId,
-				       UsbConfigPtr->IntrParent,
-				       XINTERRUPT_DEFAULT_PRIORITY);
-#endif
-	if (XST_SUCCESS != Status) {
-		goto out;
-	}
 
 	/* Configuration of the DEVICE side of the controller happens in
 	 * multiple stages.
@@ -268,13 +128,6 @@ static int UsbIntrExample(XUsbPs *UsbInstancePtr, UINTPTR BaseAddress)
 		goto out;
 	}
 
-	/* Set the handler for receiving frames. */
-	Status = XUsbPs_IntrSetHandler(UsbInstancePtr, UsbIntrHandler, NULL,
-				       XUSBPS_IXR_UE_MASK);
-	if (XST_SUCCESS != Status) {
-		goto out;
-	}
-
 	/* Set the handler for handling endpoint 0 events. This is where we
 	 * will receive and handle the Setup packet from the host.
 	 */
@@ -293,81 +146,17 @@ static int UsbIntrExample(XUsbPs *UsbInstancePtr, UINTPTR BaseAddress)
 				     XUSBPS_EP_DIRECTION_OUT,
 				     XUsbPs_Ep1EventHandler, UsbInstancePtr);
 
-	/* Enable the interrupts. */
 	XUsbPs_IntrEnable(UsbInstancePtr, XUSBPS_IXR_UR_MASK |
 			  XUSBPS_IXR_UI_MASK);
-
 
 	/* Start the USB engine */
 	XUsbPs_Start(UsbInstancePtr);
 
-	/* At this point we wait for the user to plug in the usb plug. This
-	 * will cause the host to send USB packets. Once we received something,
-	 * we clean up and stop the controller.
-	 *
-	 * This will not really work if we want to use the USB storage
-	 * example. What can we do instead?
-	 */
-	while (NumReceivedFrames < 1) {
-		/* NOP */
-	}
-
-
-	/* Set return code to indicate success and fall through to clean-up
-	 * code.
-	 */
 	ReturnStatus = XST_SUCCESS;
 
-out:
-	/* Clean up. It's always safe to disable interrupts and clear the
-	 * handlers, even if they have not been enabled/set. The same is true
-	 * for disabling the interrupt subsystem.
-	 */
-	XUsbPs_Stop(UsbInstancePtr);
-	XUsbPs_IntrDisable(UsbInstancePtr, XUSBPS_IXR_ALL);
-#ifndef SDT
-	UsbDisableIntrSystem(IntcInstancePtr, UsbIntrId);
-#else
-	XDisconnectInterruptCntrl(UsbConfigPtr->IntrId,
-				  UsbConfigPtr->IntrParent);
-#endif
-	(int) XUsbPs_IntrSetHandler(UsbInstancePtr, NULL, NULL, 0);
-
-	/* Free allocated memory.
-	 */
-	if (NULL != UsbInstancePtr->UserDataPtr) {
-		free(UsbInstancePtr->UserDataPtr);
-	}
+	out:
 	return ReturnStatus;
 }
-
-/*****************************************************************************/
-/**
- *
- * This function is the handler which performs processing for the USB driver.
- * It is called from an interrupt context such that the amount of processing
- * performed should be minimized.
- *
- * This handler provides an example of how to handle USB interrupts and
- * is application specific.
- *
- * @param	CallBackRef is the Upper layer callback reference passed back
- *		when the callback function is invoked.
- * @param 	Mask is the Interrupt Mask.
- * @param	CallBackRef is the User data reference.
- *
- * @return
- * 		- XST_SUCCESS if successful
- * 		- XST_FAILURE on error
- *
- * @note	None.
- *
- ******************************************************************************/
-static void UsbIntrHandler(void *CallBackRef, u32 Mask)
-{
-	NumIrqs++;
-}
-
 
 /*****************************************************************************/
 /**
@@ -493,98 +282,3 @@ static void XUsbPs_Ep1EventHandler(void *CallBackRef, u8 EpNum,
 			break;
 	}
 }
-
-/*****************************************************************************/
-/**
-*
-* This function setups the interrupt system such that interrupts can occur for
-* the USB controller. This function is application specific since the actual
-* system may or may not have an interrupt controller. The USB controller could
-* be directly connected to a processor without an interrupt controller.  The
-* user should modify this function to fit the application.
-*
-* @param	IntcInstancePtr is a pointer to instance of the Intc controller.
-* @param	UsbInstancePtr is a pointer to instance of the USB controller.
-* @param	UsbIntrId is the Interrupt Id and is typically
-* 		XPAR_<INTC_instance>_<USB_instance>_VEC_ID value
-* 		from xparameters.h
-*
-* @return
-* 		- XST_SUCCESS if successful
-* 		- XST_FAILURE on error
-*
-******************************************************************************/
-#ifndef SDT
-static int UsbSetupIntrSystem(XScuGic *IntcInstancePtr,
-			      XUsbPs *UsbInstancePtr, u16 UsbIntrId)
-{
-	int Status;
-	XScuGic_Config *IntcConfig;
-
-	/*
-	 * Initialize the interrupt controller driver so that it is ready to
-	 * use.
-	 */
-	IntcConfig = XScuGic_LookupConfig(XPAR_SCUGIC_SINGLE_DEVICE_ID);
-	if (NULL == IntcConfig) {
-		return XST_FAILURE;
-	}
-	Status = XScuGic_CfgInitialize(IntcInstancePtr, IntcConfig,
-				       IntcConfig->CpuBaseAddress);
-	if (Status != XST_SUCCESS) {
-		return XST_FAILURE;
-	}
-
-	Xil_ExceptionInit();
-	/*
-	 * Connect the interrupt controller interrupt handler to the hardware
-	 * interrupt handling logic in the processor.
-	 */
-	Xil_ExceptionRegisterHandler(XIL_EXCEPTION_ID_IRQ_INT,
-				     (Xil_ExceptionHandler)XScuGic_InterruptHandler,
-				     IntcInstancePtr);
-	/*
-	 * Connect the device driver handler that will be called when an
-	 * interrupt for the device occurs, the handler defined above performs
-	 * the specific interrupt processing for the device.
-	 */
-	Status = XScuGic_Connect(IntcInstancePtr, UsbIntrId,
-				 (Xil_ExceptionHandler)XUsbPs_IntrHandler,
-				 (void *)UsbInstancePtr);
-	if (Status != XST_SUCCESS) {
-		return Status;
-	}
-	/*
-	 * Enable the interrupt for the device.
-	 */
-	XScuGic_Enable(IntcInstancePtr, UsbIntrId);
-
-	/*
-	 * Enable interrupts in the Processor.
-	 */
-	Xil_ExceptionEnableMask(XIL_EXCEPTION_IRQ);
-
-	return XST_SUCCESS;
-}
-
-/*****************************************************************************/
-/**
-*
-* This function disables the interrupts that occur for the USB controller.
-*
-* @param	IntcInstancePtr is a pointer to instance of the INTC driver.
-* @param	UsbIntrId is the Interrupt Id and is typically
-* 		XPAR_<INTC_instance>_<USB_instance>_VEC_ID value
-* 		from xparameters.h
-*
-* @return	None
-*
-* @note		None.
-*
-******************************************************************************/
-static void UsbDisableIntrSystem(XScuGic *IntcInstancePtr, u16 UsbIntrId)
-{
-	/* Disconnect and disable the interrupt for the USB controller. */
-	XScuGic_Disconnect(IntcInstancePtr, UsbIntrId);
-}
-#endif

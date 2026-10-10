@@ -15,8 +15,9 @@ Updated: 4/11/25
 using namespace Helpers;
 
 template <class ElementType, size_t Capacity>
-LiteQueue<ElementType, Capacity>::LiteQueue()
+LiteQueue<ElementType, Capacity>::LiteQueue(const bool ring)
 	: m_capacity(Capacity)
+	, m_ring(ring)
 	, m_count(0)
 	, m_overruns(0)
 	, m_head(0)
@@ -62,9 +63,9 @@ bool LiteQueue<ElementType, Capacity>::empty() const
 }
 
 template <class ElementType, size_t Capacity>
-bool LiteQueue<ElementType, Capacity>::push(const ElementType& item, const bool ring)
+bool LiteQueue<ElementType, Capacity>::push(const ElementType& item)
 {
-	if (ring || m_count < m_capacity)
+	if (m_ring || m_count < m_capacity)
 	{
 		m_array[m_tail % m_capacity] = item;
 		m_tail = m_tail + 1;
@@ -85,9 +86,9 @@ bool LiteQueue<ElementType, Capacity>::push(const ElementType& item, const bool 
 }
 
 template <class ElementType, size_t Capacity>
-bool LiteQueue<ElementType, Capacity>::prepush(ElementType** outItem, const bool ring)
+bool LiteQueue<ElementType, Capacity>::prepush(ElementType** outItem)
 {
-	if(NULL != outItem && (ring || m_count < m_capacity))
+	if(nullptr != outItem && (m_ring || m_count < m_capacity))
 	{
 		*outItem = &m_array[m_tail % m_capacity];
 		m_tail = m_tail + 1;

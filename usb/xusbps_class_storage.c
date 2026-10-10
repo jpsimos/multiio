@@ -91,9 +91,13 @@ const static SCSI_INQUIRY scsiInquiry ALIGNMENT_CACHELINE = {
 	{'P', 'S', ' ', 'U', 'S', 'B', ' ', 'V', 'i', 'r', 't', 'D', 'i', 's', 'k'},	/* Product ID: must be 16 characters long. */
 	{'1', '.', '0', '0'}		/* Revision:   must be  4 characters long. */
 };
+
+extern u8 _dma1_ddr_start;
+static u8* VirtFlash = (u8*)&_dma1_ddr_start;
+
 static u8 MaxLUN ALIGNMENT_CACHELINE = 0;
 /* Buffer for virtual flash disk space. */
-static u8 VirtFlash[VFLASH_SIZE] ALIGNMENT_CACHELINE;
+//static u8 VirtFlash[VFLASH_SIZE] ALIGNMENT_CACHELINE;
 
 static USB_CBW lastCBW ALIGNMENT_CACHELINE;
 

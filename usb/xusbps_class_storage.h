@@ -52,7 +52,8 @@
 
 /* Virtual Flash memory related definitions.
  */
-#define VFLASH_SIZE		0x100000	/* 1MB space */
+
+#define VFLASH_SIZE		0x400000	/* 4MB space */
 #define VFLASH_BLOCK_SIZE	0x200
 #define VFLASH_NUM_BLOCKS	(VFLASH_SIZE/VFLASH_BLOCK_SIZE)
 

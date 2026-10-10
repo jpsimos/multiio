@@ -157,10 +157,13 @@ namespace Helpers
 		long long Micros();
 		long long Millis();
 		double Seconds();
-		double MicrosToSeconds(long long micros);
-		double MillisToSeconds(long long millis);
+		double MicrosToSeconds(const long long micros);
+		double MillisToSeconds(const long long millis);
 		long long SecondsToMicros(double seconds);
-		long long SecondsToMillis(double seconds);
+		long long SecondsToMillis(const double seconds);
+		void SleepMicros(const long long micros);
+		void SleepMillis(const long long millis);
+		void SleepSeconds(const double seconds);
 
 		class Stopwatch
 		{

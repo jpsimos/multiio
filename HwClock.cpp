@@ -80,7 +80,7 @@ HwClock::HwClock(
 
 	if(IsStopped())
 	{
-		std::cout << ANSI_LIGHT_YELLOW "Warning: RTC is not responsive yet." ANSI_RESET "\n";
+		std::cout << ANSI_LIGHT_YELLOW "Warning: RTC is stopped." ANSI_RESET "\n";
 	}
 
 	SetClockOutFrequency(m_clockOutFrequency);
@@ -93,7 +93,7 @@ HwClock::HwClock(
 		this,
 		true,
 		0xA0,
-		true
+		false
 	);
 	XGpio_InterruptClear(&m_gpioRtc, XGPIO_IR_MASK);
 	XGpio_InterruptEnable(&m_gpioRtc, XGPIO_IR_CH1_MASK);

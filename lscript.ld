@@ -1,6 +1,6 @@
 
-_STACK_SIZE = DEFINED(_STACK_SIZE) ? _STACK_SIZE : 0x100000;
-_HEAP_SIZE = DEFINED(_HEAP_SIZE) ? _HEAP_SIZE : 0x1000000;
+_STACK_SIZE = DEFINED(_STACK_SIZE) ? _STACK_SIZE : 0x400000;
+_HEAP_SIZE = DEFINED(_HEAP_SIZE) ? _HEAP_SIZE : 0x4000000;
 
 _ABORT_STACK_SIZE = DEFINED(_ABORT_STACK_SIZE) ? _ABORT_STACK_SIZE : 1024;
 _SUPERVISOR_STACK_SIZE = DEFINED(_SUPERVISOR_STACK_SIZE) ? _SUPERVISOR_STACK_SIZE : 2048;
@@ -15,9 +15,6 @@ MEMORY
 	cpu1_ddr : ORIGIN = 0x7A00000, LENGTH = 0x7780000
 	dma1_ddr : ORIGIN = 0xF000000, LENGTH = 0x400000
 	dma2_ddr : ORIGIN = 0xF400000, LENGTH = 0x400000
-	dma3_ddr : ORIGIN = 0xF800000, LENGTH = 0x400000
-	cpu0_litequeue_ddr : ORIGIN = 0xFC00000, LENGTH = 0x400000
-	cpu1_litequeue_ddr : ORIGIN = 0x10000000, LENGTH = 0x100000
 	ps7_qspi_linear_0_memory_0 : ORIGIN = 0xFC000000, LENGTH = 0x1000000
 	ocm_ram_0 : ORIGIN = 0x0, LENGTH = 0x30000
 	ocm_ram_1 : ORIGIN = 0xFFFF0000, LENGTH = 0xFE00
@@ -31,6 +28,10 @@ SECTIONS
 _cpu0_ddr_start = ORIGIN(cpu0_ddr);
 _cpu1_ddr_start = ORIGIN(cpu1_ddr);
 _cpu1_ddr_end = ORIGIN(cpu1_ddr) + LENGTH(cpu1_ddr);
+_dma1_ddr_start = ORIGIN(dma1_ddr);
+_dma1_ddr_end = ORIGIN(dma1_ddr) + LENGTH(dma1_ddr);
+_dma2_ddr_start = ORIGIN(dma2_ddr);
+_dma2_ddr_end = ORIGIN(dma2_ddr) + LENGTH(dma2_ddr);
 _ocm_ram_0_start = ORIGIN(ocm_ram_0);
 _ocm_ram_1_start = ORIGIN(ocm_ram_1);
 
@@ -285,21 +286,22 @@ _SDA2_BASE_ = __sdata2_start + ((__sbss2_end - __sdata2_start) / 2 );
    __undef_stack = .;
 } > cpu0_ddr
 
-.cpu0_litequeue (NOLOAD) : {
+.dma1 (NOLOAD) : {
 	. = ALIGN(16);
-	_cpu0_litequeue_start = .;
-	KEEP (*(.cpu0_litequeue))
+	_dma1_ddr_start = .;
+	KEEP (*(.dma1))
 	. = ALIGN(16);
-	_cpu0_litequeue_end = .;
-} > cpu0_litequeue_ddr
+	_dma1_ddr_end = .;
+} > dma1_ddr
 
-.cpu1_litequeue (NOLOAD) : {
+.dma2 (NOLOAD) : {
 	. = ALIGN(16);
-	_cpu1_litequeue_start = .;
-	KEEP (*(.cpu1_litequeue))
+	_dma2_ddr_start = .;
+	KEEP (*(.dma2))
 	. = ALIGN(16);
-	_cpu1_litequeue_end = .;
-} > cpu1_litequeue_ddr
+	_dma2_ddr_end = .;
+} > dma2_ddr
+
 
 _end = .;
 }

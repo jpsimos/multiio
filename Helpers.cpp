@@ -469,12 +469,12 @@ namespace Helpers
 			return MicrosToSeconds(Micros());
 		}
 
-		double MicrosToSeconds(long long micros)
+		double MicrosToSeconds(const long long micros)
 		{
 			return static_cast<double>(micros) / 1000000.0;
 		}
 
-		double MillisToSeconds(long long millis)
+		double MillisToSeconds(const long long millis)
 		{
 			return static_cast<double>(millis) / 1000.0;
 		}
@@ -487,9 +487,24 @@ namespace Helpers
 				+ static_cast<long long>(partSeconds * 1000000.0);
 		}
 
-		long long SecondsToMillis(double seconds)
+		long long SecondsToMillis(const double seconds)
 		{
 			return SecondsToMicros(seconds) / 1000LL;
+		}
+
+		void SleepMicros(const long long micros)
+		{
+			::usleep(static_cast<ULONG>(micros));
+		}
+
+		void SleepMillis(const long long millis)
+		{
+			::usleep(static_cast<ULONG>(millis) * 1000UL);
+		}
+
+		void SleepSeconds(const double seconds)
+		{
+			::usleep(static_cast<ULONG>(seconds * 1000000.0));
 		}
 
 		Stopwatch::Stopwatch()
