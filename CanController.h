@@ -44,7 +44,7 @@ public:
 		Message(
 			uint32_t id,
 			uint8_t length,
-			uint8_t data[]
+			uint8_t* data
 		);
 		Message(const Message& other);
 		~Message() {}
@@ -52,13 +52,13 @@ public:
 		Frame* operator->();
 		Frame* GetInternalFramePointer();
 		const Frame* GetConstInternalFramePointer() const;
-		std::string ToString() const;
+		std::string ToString(const unsigned short phy = std::numeric_limits<unsigned short>::max()) const;
 		uint16_t GetStandardId() const;
 		uint16_t GetExtendedId() const;
 		uint8_t GetLength() const;
 
 	private:
-		alignas(8) CanController::Message::Frame m_frame;
+		alignas(32) CanController::Message::Frame m_frame;
 	};
 
 	static CanController* CreateInstance(
@@ -78,27 +78,29 @@ private:
 public:
 	bool SetBaudRate(unsigned int baudRate);
 	bool Send(CanController::Message& msg);
+	bool Receive(CanController::Message& msg);
 	void ProcessInbox();
 	virtual void Loop();
 	virtual int ProcessCommand(const std::string& command);
 
 private:
-	static void CanSendIsr(CanController* canPtr);
-	static void CanReceiveIsr(CanController* canPtr);
+	static void CanSentIsr(CanController* canPtr);
+	static void CanReceivedIsr(CanController* canPtr);
 	static void CanErrorIsr(CanController* canPtr, unsigned int errorMask);
 	static void CanEventIsr(CanController* canPtr, unsigned int eventMask);
 
 private:
-	const unsigned int m_deviceId;
-	const unsigned int m_intrId;
+	const unsigned short m_deviceId;
+	const unsigned char m_intrId;
 	XCanPs_Config* m_canConfig;
 	XCanPs m_can;
-	volatile unsigned int m_numFramesReceived;
-	volatile unsigned int m_numFramesSent;
-	volatile unsigned int m_numErrors;
+	volatile unsigned int m_numReceivedIntrs;
+	volatile unsigned int m_numSentIntrs;
+	volatile unsigned int m_numErrorIntrs;
 	LiteQueue<CanController::Message, CAN_CONTROLLER_QUEUE_SIZE> m_receiveQueue;
 	LiteQueue<CanController::Message, CAN_CONTROLLER_QUEUE_SIZE> m_receiveQueueAux;
 	LiteQueue<CanController::Message, CAN_CONTROLLER_QUEUE_SIZE>* m_receiveQueuePtr;
+	bool m_processingInbox;
 };
 
 inline CanController::Message::Message()
@@ -109,13 +111,13 @@ inline CanController::Message::Message()
 inline CanController::Message::Message(
 	uint32_t id,
 	uint8_t length,
-	uint8_t data[]
+	uint8_t* data
 )
 {
 	m_frame.s_frame.m_id = id;
 	m_frame.s_frame.m_dlc = XCanPs_CreateDlcValue(static_cast<uint32_t>(length));
 
-	if(NULL != data)
+	if(nullptr != &data[0])
 	{
 		std::memcpy(&m_frame.s_frame.m_data[0], &data[0],
 			std::min(static_cast<size_t>(length), sizeof(m_frame.s_frame.m_data)));
@@ -144,21 +146,22 @@ inline const CanController::Message::Frame* CanController::Message::GetConstInte
 	return &m_frame;
 }
 
-inline std::string CanController::Message::ToString() const
+inline std::string CanController::Message::ToString(const unsigned short phy) const
 {
 	std::ostringstream oss;
 
 	oss << "{"
-		<< std::quoted("idr") << ":" << std::hex << static_cast<unsigned int>(m_frame.s_frame.m_id) << ","
-		<< std::quoted("ids") << ":" << std::hex << static_cast<unsigned int>(GetStandardId()) << ","
-		<< std::quoted("ide") << ":" << std::hex << static_cast<unsigned int>(GetExtendedId()) << ","
-		<< std::quoted("dlc") << ":" << std::hex << static_cast<unsigned int>(m_frame.s_frame.m_dlc) << ","
+		<< std::quoted("phy") << ":" << std::dec << static_cast<unsigned int>(phy) << ","
+		<< std::quoted("idr") << ":0x" << std::hex << static_cast<unsigned int>(m_frame.s_frame.m_id) << ","
+		<< std::quoted("ids") << ":0x" << std::hex << static_cast<unsigned int>(GetStandardId()) << ","
+		<< std::quoted("ide") << ":0x" << std::hex << static_cast<unsigned int>(GetExtendedId()) << ","
+		<< std::quoted("dlc") << ":0x" << std::hex << static_cast<unsigned int>(m_frame.s_frame.m_dlc) << ","
 		<< std::quoted("dlen") << ":" << std::dec << static_cast<unsigned int>(GetLength()) << ","
 		<< std::quoted("data") << ":[";
 
 	for(unsigned int i = 0; i < 8; i++)
 	{
-		oss << std::hex << static_cast<unsigned int>(m_frame.s_frame.m_data[i]);
+		oss << "0x" << std::hex << static_cast<unsigned int>(m_frame.s_frame.m_data[i]);
 		oss << ((i < 7) ? "," : "]");
 	}
 
@@ -197,9 +200,5 @@ namespace std
 		}
 	};
 }
-
-// ⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢
-// ⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢⬢
-
 
 #endif /* SRC_CANCONTROLLER_H_ */

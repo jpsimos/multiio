@@ -21,14 +21,21 @@ CanController* CanController::CreateInstance(
 {
 	CanController* canPtr = nullptr;
 
-	if(deviceId < NUM_CAN_CONTROLLERS)
+	for(CanController* iterPtr : sm_cans)
 	{
-		canPtr = sm_cans.at(deviceId);
-
-		if(nullptr == canPtr)
+		if(nullptr != iterPtr)
 		{
-			canPtr = new CanController(deviceId, intrId);
+			if(deviceId == iterPtr->m_deviceId)
+			{
+				canPtr = iterPtr;
+				break;
+			}
 		}
+	}
+
+	if(nullptr == canPtr)
+	{
+		canPtr = new CanController(deviceId, intrId);
 	}
 
 	return canPtr;
@@ -38,13 +45,21 @@ CanController* CanController::GetInstance(const unsigned short deviceId)
 {
 	CanController* canPtr = nullptr;
 
-	if(deviceId < NUM_CAN_CONTROLLERS)
+	for(CanController* iterPtr : sm_cans)
 	{
-		if(nullptr == sm_cans.at(deviceId))
+		if(nullptr != iterPtr)
 		{
-			RUNTIME_ERROR("Must can CreateInstance first");
+			if(deviceId == iterPtr->m_deviceId)
+			{
+				canPtr = iterPtr;
+				break;
+			}
 		}
-		canPtr = sm_cans.at(deviceId);
+	}
+
+	if(nullptr == canPtr)
+	{
+		RUNTIME_ERROR("Must can CreateInstance first");
 	}
 
 	return canPtr;
@@ -59,34 +74,48 @@ CanController::CanController(
 	m_intrId(intrId),
 	m_canConfig(XCanPs_LookupConfig(deviceId)),
 	m_can(),
-	m_numFramesReceived(0U),
-	m_numFramesSent(0U),
-	m_numErrors(0U),
-	m_receiveQueue(),
-	m_receiveQueueAux(),
-	m_receiveQueuePtr(&m_receiveQueue)
+	m_numReceivedIntrs(0U),
+	m_numSentIntrs(0U),
+	m_numErrorIntrs(0U),
+	m_receiveQueue(true),
+	m_receiveQueueAux(true),
+	m_receiveQueuePtr(&m_receiveQueue),
+	m_processingInbox(false)
 {
-	int result = XST_FAILURE;
-
-	if(sizeof(CanController::Message::Frame) != sizeof(CanController::Message::Frame::u_bytes))
+	union
 	{
-		RUNTIME_ERROR("Message structure is bad. Fix code.");
-	}
+		s32 result;
+		u8 mode;
+	};
+
+	static_assert(sizeof(CanController::Message::Frame) == sizeof(CanController::Message::Frame::u_bytes),
+		"CanController::Message sizes do not match.");
 
 	result = XCanPs_CfgInitialize(&m_can, m_canConfig, m_canConfig->BaseAddr);
-	result |= !!(XCANPS_MODE_CONFIG != XCanPs_GetMode(&m_can)) * XST_NOT_ENABLED;
 
 	if(XST_SUCCESS != result)
 	{
-		RUNTIME_ERROR("XCanPs_CfgInitialize = %d\n", result);
+		RUNTIME_ERROR("XCanPs_CfgInitialize = %d", result);
 	}
 
-	SetBaudRate(33333);
+	mode = XCanPs_GetMode(&m_can);
+
+	if(XCANPS_MODE_CONFIG != mode)
+	{
+		RUNTIME_ERROR("XCanPs_GetMode = %u", mode);
+	}
+
+	if(!SetBaudRate(500000))
+	{
+		DEBUG_ERROR("SetBaudRate failed.");
+	}
+
+	XCanPs_SetRxIntrWatermark(&m_can, 32);
 
 	result = XCanPs_SetHandler(&m_can, XCANPS_HANDLER_SEND, (void*)
-		reinterpret_cast<XCanPs_SendRecvHandler>(CanController::CanSendIsr), this);
+		reinterpret_cast<XCanPs_SendRecvHandler>(CanController::CanSentIsr), this);
 	result |= XCanPs_SetHandler(&m_can, XCANPS_HANDLER_RECV, (void*)
-		reinterpret_cast<XCanPs_SendRecvHandler>(CanController::CanReceiveIsr), this);
+		reinterpret_cast<XCanPs_SendRecvHandler>(CanController::CanReceivedIsr), this);
 	result |= XCanPs_SetHandler(&m_can, XCANPS_HANDLER_ERROR, (void*)
 		reinterpret_cast<XCanPs_ErrorHandler>(CanController::CanErrorIsr), this);
 	result |= XCanPs_SetHandler(&m_can, XCANPS_HANDLER_EVENT, (void*)
@@ -94,7 +123,7 @@ CanController::CanController(
 
 	if(XST_SUCCESS != result)
 	{
-		RUNTIME_ERROR("XCanPs_SetHandler... = %d", (int)result);
+		RUNTIME_ERROR("XCanPs_SetHandler... = %d", result);
 	}
 
 	InterruptManager::GetInstance()->Attach(
@@ -105,12 +134,10 @@ CanController::CanController(
 		0xA0,
 		false
 	);
-	XCanPs_IntrEnable(&m_can, XCANPS_IXR_ALL);
-	XCanPs_SetRxIntrWatermark(&m_can, 1);
-	XCanPs_SetTxIntrWatermark(&m_can, 1);
+	XCanPs_IntrEnable(&m_can, XCANPS_IXR_RXNEMP_MASK);
 	InterruptManager::GetInstance()->Enable(m_intrId);
 
-	XCanPs_EnterMode(&m_can, XCANPS_MODE_LOOPBACK);
+	XCanPs_EnterMode(&m_can, XCANPS_MODE_NORMAL);
 }
 
 CanController::~CanController()
@@ -124,7 +151,7 @@ bool CanController::SetBaudRate(unsigned int baudRate)
 {
 	bool hadError = true;
 	bool found = false;
-	unsigned int clock = XPAR_PS7_CAN_0_CAN_CLK_FREQ_HZ;
+	unsigned int clock;
 	unsigned int calculatedBaud;
 	unsigned int ts1;
 	unsigned int ts2;
@@ -134,6 +161,10 @@ bool CanController::SetBaudRate(unsigned int baudRate)
 	unsigned int useTs2;
 	unsigned int useBrp;
 	unsigned int useSjw;
+
+	static_assert(XPAR_PS7_CAN_0_CAN_CLK_FREQ_HZ == XPAR_PS7_CAN_1_CAN_CLK_FREQ_HZ, "PS CAN Clocks do not match.");
+
+	clock = XPAR_PS7_CAN_0_CAN_CLK_FREQ_HZ;
 
 	if(XCANPS_MODE_CONFIG == XCanPs_GetMode(&m_can))
 	{
@@ -162,8 +193,13 @@ bool CanController::SetBaudRate(unsigned int baudRate)
 
 		if(found)
 		{
-			XCanPs_SetBaudRatePrescaler(&m_can, useBrp);
-			XCanPs_SetBitTiming(&m_can, useSjw, useTs2, useTs1);
+			XCanPs_SetBaudRatePrescaler(&m_can, static_cast<u8>(useBrp));
+			XCanPs_SetBitTiming(
+				&m_can,
+				static_cast<u8>(useSjw),
+				static_cast<u8>(useTs2),
+				static_cast<u8>(useTs1)
+			);
 			hadError = false;
 		}
 	}
@@ -191,75 +227,127 @@ bool CanController::Send(CanController::Message& msg)
 	return !hadError;
 }
 
-void CanController::CanSendIsr(CanController* canPtr)
+bool CanController::Receive(CanController::Message& msg)
 {
-	if(NULL != canPtr)
+	bool hadError = true;
+	s32 status;
+
+	if(!XCanPs_IsRxEmpty(&m_can))
 	{
-		canPtr->m_numFramesSent += 1;
+		status = XCanPs_Recv(&m_can, (u32*)&msg->u_dwords[0]);
+
+		if(XST_SUCCESS == status)
+		{
+			hadError = false;
+		}
+	}
+
+	return !hadError;
+}
+
+void CanController::CanSentIsr(CanController* canPtr)
+{
+	if(nullptr != canPtr)
+	{
+		canPtr->m_numSentIntrs += 1;
 	}
 }
 
-void CanController::CanReceiveIsr(CanController* canPtr)
+void CanController::CanReceivedIsr(CanController* canPtr)
 {
-	s32 status;
-	CanController::Message* canMsgPtr;
+	CanController::Message* msgPtr;
 
-	if(canPtr->m_receiveQueue.prepush(&canMsgPtr, false))
+	if(canPtr != nullptr)
 	{
-		status = XCanPs_Recv(&(canPtr->m_can), (u32*)&(*canMsgPtr)->u_dwords[0]);
+		canPtr->m_numReceivedIntrs += 1;
 
-		if(XST_SUCCESS != status)
+		if(canPtr->m_receiveQueuePtr->prepush(&msgPtr))
 		{
-			canPtr->m_receiveQueue.unpush();
-			canMsgPtr = NULL;
+			if(!canPtr->Receive(*msgPtr))
+			{
+				canPtr->m_receiveQueuePtr->unpush();
+			}
 		}
-
-		canPtr->m_numFramesReceived += 1;
 	}
 }
 
 void CanController::CanErrorIsr(CanController* canPtr, unsigned int errorMask)
 {
-	if(NULL != canPtr)
+	if(nullptr != canPtr)
 	{
-		canPtr->m_numErrors += 1;
+		canPtr->m_numErrorIntrs += 1;
 	}
 }
 
 void CanController::CanEventIsr(CanController* canPtr, unsigned int eventMask)
 {
-	if(NULL != canPtr)
-	{
-		if(eventMask & XCANPS_IXR_RXOK_MASK)
-		{
-			nop();
-		}
-	}
+	return;
 }
 
 void CanController::ProcessInbox()
 {
 	LiteQueue<CanController::Message, CAN_CONTROLLER_QUEUE_SIZE>* receiveQueuePtr;
+	CanController::Message* msgPtr;
 
-	if(!m_receiveQueuePtr->empty())
+	receiveQueuePtr = m_receiveQueuePtr;
+
+	if(!XCanPs_IsRxEmpty(&m_can) || !receiveQueuePtr->empty())
 	{
-		receiveQueuePtr = m_receiveQueuePtr;
+		m_receiveQueuePtr = receiveQueuePtr == &m_receiveQueue ? &m_receiveQueueAux : &m_receiveQueue;
 
-		XCanPs_IntrDisable(&m_can, XCANPS_IXR_ALL);
-		m_receiveQueuePtr = m_receiveQueuePtr == &m_receiveQueue ? &m_receiveQueueAux : &m_receiveQueue;
-		XCanPs_IntrEnable(&m_can, XCANPS_IXR_ALL);
-
-		do
+		if(!XCanPs_IsRxEmpty(&m_can))
 		{
-			//
+			XCanPs_IntrDisable(&m_can, XCANPS_IXR_RXNEMP_MASK);
+			msgPtr = nullptr;
+
+			do
+			{
+				if(receiveQueuePtr->prepush(&msgPtr))
+				{
+					if(!Receive(*msgPtr))
+					{
+						receiveQueuePtr->unpush();
+						msgPtr = nullptr;
+						break;
+					}
+				}
+				else
+				{
+					break;
+				}
+			}
+			while(!XCanPs_IsRxEmpty(&m_can));
+
+			XCanPs_IntrEnable(&m_can, XCANPS_IXR_RXNEMP_MASK);
 		}
-		while(!receiveQueuePtr->empty());
+
+		while(!receiveQueuePtr->empty())
+		{
+			// std::cout << receiveQueuePtr->front().ToString(m_deviceId) << '\n';
+			receiveQueuePtr->pop();
+		}
 	}
 }
 
 void CanController::Loop()
 {
-	ProcessInbox();
+	if(!m_processingInbox)
+	{
+		m_processingInbox = true;
+		ProcessInbox();
+		m_processingInbox = false;
+	}
+
+
+	static Time::Stopwatch testTimer;
+	static unsigned short phy = XPAR_XCANPS_0_DEVICE_ID;
+
+	if(m_deviceId == phy  && testTimer >= 0.25)
+	{
+		ProcessCommand(Text::Stringf("can %u test", m_deviceId));
+		testTimer = 0;
+		phy ^= 1;
+	}
 }
 
 int CanController::ProcessCommand(const std::string& command)
@@ -276,9 +364,9 @@ int CanController::ProcessCommand(const std::string& command)
 
 		if(Text::CStrEq(subCommandCStr, "status"))
 		{
-			const unsigned int numSent = m_numFramesSent;
-			const unsigned int numReceived = m_numFramesReceived;
-			const unsigned int numErrors = m_numErrors;
+			const unsigned int numSent = m_numSentIntrs;
+			const unsigned int numReceived = m_numReceivedIntrs;
+			const unsigned int numErrors = m_numErrorIntrs;
 
 			std::cout << ANSI_LIGHT_GREEN "CAN[" << std::dec << m_deviceId << "]" ANSI_RESET "\n" <<
 				"\t Num Sent = " << numSent << "\n" <<
@@ -290,33 +378,21 @@ int CanController::ProcessCommand(const std::string& command)
 		}
 		else if(Text::CStrEq(subCommandCStr, "test"))
 		{
-			s32 status;
+			unsigned int randomLength = Random::Random<unsigned int>(0, 8);
 
-			for(unsigned int c = 0; c < 10; c++)
+			CanController::Message msg(
+				XCanPs_CreateIdValue(Random::Random<unsigned int>(0x001, 0x7F0), 0, 0, 0, 0),
+				static_cast<unsigned char>(randomLength),
+				nullptr
+			);
+
+			for(unsigned int i = 0; i < randomLength; i++)
 			{
-				CanController::Message msg(
-					XCanPs_CreateIdValue(Random::Random<unsigned int>(0x001, 0x7F0), 0, 0, 0, 0),
-					8,
-					NULL
-				);
-
-				for(unsigned int i = 0; i < 8; i++)
-				{
-					static unsigned char dataValue = 0;
-					msg->s_frame.m_data[i] = dataValue++;
-				}
-
-				if(!XCanPs_IsTxFifoFull(&m_can))
-				{
-					status = XCanPs_Send(&m_can, (u32*)&msg->u_dwords[0]);
-
-					if(XST_SUCCESS != status)
-					{
-						DEBUG_ERROR("XCanPs_Send = 0x%x", status);
-						break;
-					}
-				}
+				static unsigned char dataValue = 0;
+				msg->s_frame.m_data[i] = dataValue++;
 			}
+
+			Send(msg);
 
 			commandResult = COMMAND_OK;
 		}
