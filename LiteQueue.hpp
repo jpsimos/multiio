@@ -2,36 +2,38 @@
 LiteQueue.hpp - A lightweight queue template class in c++
 Author: Jacob A Psimos
 Date: 5/9/22
-Updated: 4/3/26
+Updated: 4/11/25
 */
 
 #ifndef __LITEQUEUE_H
 #define __LITEQUEUE_H
-
-#include <atomic>
 
 template <class ElementType, size_t Capacity>
 class LiteQueue
 {
 public:
 	explicit LiteQueue();
-	~LiteQueue() = default;
+	~LiteQueue();
 	size_t capacity() const;
 	size_t count() const;
+	size_t overruns() const;
 	bool full() const;
 	bool empty() const;
-	ElementType& front();
-	bool pop();
-	bool push(const ElementType& item);
-	bool prepush(ElementType** outItem);
+	bool push(const ElementType& item, const bool ring = false);
+	bool prepush(ElementType** outItem, const bool ring = false);
 	bool unpush();
+	bool pop();
+	ElementType& front();
 	void clear();
 
 private:
 	const size_t m_capacity;
-	std::atomic<size_t> m_head;
-	std::atomic<size_t> m_tail;
-	alignas(32) ElementType m_array[Capacity];
+	volatile size_t m_count;
+	volatile size_t m_overruns;
+	volatile size_t m_head;
+	volatile size_t m_tail;
+	volatile bool m_unpushable;
+	alignas(16) ElementType m_array[Capacity];
 };
 
 #include "LiteQueue.cpp"

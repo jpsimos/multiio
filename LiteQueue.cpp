@@ -2,13 +2,12 @@
 LiteQueue.cpp - A lightweight queue template class in c++
 Author: Jacob A Psimos
 Date: 5/9/22
-Updated: 4/3/26
+Updated: 4/11/25
 */
 
 #ifndef __LITEQUEUE_CPP
 #define __LITEQUEUE_CPP
 
-#include <atomic>
 #include <stdexcept>
 #include "LiteQueue.hpp"
 #include "Helpers.h"
@@ -18,9 +17,17 @@ using namespace Helpers;
 template <class ElementType, size_t Capacity>
 LiteQueue<ElementType, Capacity>::LiteQueue()
 	: m_capacity(Capacity)
+	, m_count(0)
+	, m_overruns(0)
 	, m_head(0)
 	, m_tail(0)
+	, m_unpushable(false)
 	, m_array()
+{
+}
+
+template <class ElementType, size_t Capacity>
+LiteQueue<ElementType, Capacity>::~LiteQueue()
 {
 }
 
@@ -33,94 +40,130 @@ size_t LiteQueue<ElementType, Capacity>::capacity() const
 template <class ElementType, size_t Capacity>
 size_t LiteQueue<ElementType, Capacity>::count() const
 {
-    size_t h = m_head.load(std::memory_order_acquire);
-    size_t t = m_tail.load(std::memory_order_acquire);
-    return (t - h) & (m_capacity - 1);
+	return m_count;
+}
+
+template <class ElementType, size_t Capacity>
+size_t LiteQueue<ElementType, Capacity>::overruns() const
+{
+	return m_overruns;
 }
 
 template <class ElementType, size_t Capacity>
 bool LiteQueue<ElementType, Capacity>::full() const
 {
-	size_t t = m_tail.load(std::memory_order_acquire);
-    return ((t + 1) & (m_capacity - 1)) == m_head.load(std::memory_order_acquire);
+	return static_cast<bool>(m_count == m_capacity);
 }
 
 template <class ElementType, size_t Capacity>
 bool LiteQueue<ElementType, Capacity>::empty() const
 {
-	return m_head.load(std::memory_order_acquire) == m_tail.load(std::memory_order_acquire);
+	return static_cast<bool>(0 == m_count);
 }
 
 template <class ElementType, size_t Capacity>
-ElementType& LiteQueue<ElementType, Capacity>::front()
+bool LiteQueue<ElementType, Capacity>::push(const ElementType& item, const bool ring)
 {
-    size_t h = m_head.load(std::memory_order_relaxed);
-    m_head.store((h + 1) & (m_capacity - 1), std::memory_order_release);
-    return m_array[h];
-}
-
-template <class ElementType, size_t Capacity>
-bool LiteQueue<ElementType, Capacity>::pop()
-{
-    if(!empty())
-    {
-    	size_t h = m_head.load(std::memory_order_relaxed);
-    	m_head.store((h + 1) & (m_capacity - 1), std::memory_order_release);
-    	return true;
-    }
-    return false;
-}
-
-template <class ElementType, size_t Capacity>
-bool LiteQueue<ElementType, Capacity>::push(const ElementType& item)
-{
-    size_t t = m_tail.load(std::memory_order_relaxed);
-    if (((t + 1) & (m_capacity - 1)) != m_head.load(std::memory_order_acquire))
-    {
-        m_array[t] = std::move(item);
-        m_tail.store((t + 1) & (m_capacity - 1), std::memory_order_release);
-        return true;
-    }
-    return false;
-}
-
-template <class ElementType, size_t Capacity>
-bool LiteQueue<ElementType, Capacity>::prepush(ElementType** outItem)
-{
-	if(outItem != nullptr)
+	if (ring || m_count < m_capacity)
 	{
-		size_t t = m_tail.load(std::memory_order_relaxed);
-		if (((t + 1) & (m_capacity - 1)) != m_head.load(std::memory_order_acquire))
+		m_array[m_tail % m_capacity] = item;
+		m_tail = m_tail + 1;
+		m_unpushable = false;
+
+		if(m_count < m_capacity)
 		{
-			*outItem = std::addressof(m_array[t]);
-			m_tail.store((t + 1) & (m_capacity - 1), std::memory_order_release);
-			return true;
+			m_count = m_count + 1;
 		}
 		else
 		{
-			*outItem = nullptr;
+			m_overruns = m_overruns + 1;
 		}
-	}
-	return false;
-}
 
-template <class ElementType, size_t Capacity>
-bool LiteQueue<ElementType, Capacity>::unpush()
-{
-	if(!empty())
-	{
-		size_t t = m_tail.load(std::memory_order_relaxed);
-		m_tail.store((t - 1) & (m_capacity - 1), std::memory_order_release);
 		return true;
 	}
 	return false;
 }
 
 template <class ElementType, size_t Capacity>
-void LiteQueue<ElementType, Capacity>::clear()
+bool LiteQueue<ElementType, Capacity>::prepush(ElementType** outItem, const bool ring)
 {
-	m_head.store(m_tail.load(std::memory_order_acquire), std::memory_order_acquire);
+	if(NULL != outItem && (ring || m_count < m_capacity))
+	{
+		*outItem = &m_array[m_tail % m_capacity];
+		m_tail = m_tail + 1;
+		m_unpushable = true;
+
+		if(m_count < m_capacity)
+		{
+			m_count = m_count + 1;
+		}
+		else
+		{
+			m_overruns = m_overruns + 1;
+		}
+
+		return true;
+	}
+
+	return false;
 }
 
+template <class ElementType, size_t Capacity>
+bool LiteQueue<ElementType, Capacity>::unpush()
+{
+	if(m_unpushable || m_count > 0)
+	{
+		m_unpushable = false;
+
+		if(m_count > 0)
+		{
+			m_tail = m_tail - 1;
+			m_count = m_count - 1;
+		}
+	}
+
+	return !m_unpushable;
+}
+
+template <class ElementType, size_t Capacity>
+bool LiteQueue<ElementType, Capacity>::pop()
+{
+	bool popped = false;
+
+	if (m_count > 0)
+	{
+		m_head = (m_head + 1) % m_capacity;
+		m_count = m_count - 1;
+		popped = true;
+	}
+
+	if(0 == m_count)
+	{
+		m_unpushable = false;
+	}
+
+	return popped;
+}
+
+template <class ElementType, size_t Capacity>
+ElementType& LiteQueue<ElementType, Capacity>::front()
+{
+	if(0 == m_count)
+	{
+		throw std::runtime_error("LiteQueue::front() Queue is empty.");
+	}
+
+	return m_array[m_head];
+}
+
+template <class ElementType, size_t Capacity>
+void LiteQueue<ElementType, Capacity>::clear()
+{
+	m_count = 0;
+	m_head = 0;
+	m_tail = 0;
+	m_overruns = 0;
+	m_unpushable = false;
+}
 
 #endif

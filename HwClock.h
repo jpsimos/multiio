@@ -10,7 +10,8 @@
 
 #include <string>
 #include "Middleware.h"
-#include "xiicps.h"
+#include "xiic.h"
+#include "xgpio.h"
 #include "Helpers.h"
 
 using namespace Helpers;
@@ -23,7 +24,7 @@ private:
 	inline static HwClock* sm_hwClockPtr = nullptr;
 
 public:
-	struct DateTime
+	struct HwClock_DT
 	{
 		uint32_t Year;       /**< Year */
 		uint32_t Month;      /**< Month */
@@ -33,8 +34,8 @@ public:
 		uint32_t Sec;        /**< Second */
 		uint32_t WeekDay;    /**< Week Day */
 
-		DateTime();
-		DateTime(uint32_t epoch);
+		HwClock_DT();
+		HwClock_DT(uint32_t epoch);
 		uint32_t ToEpoch();
 	};
 
@@ -47,15 +48,16 @@ public:
 		CLKOUT_1KHZ = 0b100,
 		CLKOUT_32HZ = 0b101,
 		CLKOUT_1HZ = 0b110,
-		CLKOUT_DISABLE = 0b111,
-		CLKOUT_UNKNOWN = ~0U
+		CLKOUT_DISABLE = 0b111
 	};
 
 public:
 	static HwClock* CreateInstance(
 		const unsigned short iicDeviceId,
 		const unsigned char iicIntrId,
-		const unsigned short iicAddress
+		const unsigned short rtcGpioDeviceId,
+		const unsigned char rtcIntrId,
+		const unsigned int iicAddress
 	);
 
 	static HwClock* GetInstance();
@@ -64,12 +66,13 @@ private:
 	HwClock(
 		const unsigned short iicDeviceId,
 		const unsigned char iicIntrId,
-		const unsigned short iicAddress
+		const unsigned short rtcGpioDeviceId,
+		const unsigned char rtcIntrId,
+		const unsigned int iicAddress
 	);
 	virtual ~HwClock();
-	bool BusBusyWait(const unsigned int timeoutMicros = 0U);
-	static void IicIsr(HwClock* hwClockPtr, unsigned int StatusEvent);
-	static void RtcIsr(HwClock* hwClockPtr);
+	static void HwClockIsr(HwClock* hwClockPtr);
+	static bool HandleReadClockCommand(CpuMessage& msg, void* arg);
 
 public:
 	virtual int ProcessCommand(const std::string& command);
@@ -78,7 +81,7 @@ public:
 	bool IsBatteryLow();
 	bool IsStopped();
 	bool SetClockOutFrequency(const ClockOutFrequency freq);
-	bool SetDateTime(HwClock::DateTime& dt);
+	bool SetDateTime(HwClock::HwClock_DT& dt);
 	bool SetDateTime(
 		uint32_t& seconds,
 		uint32_t& minutes,
@@ -88,7 +91,7 @@ public:
 		uint32_t& months,
 		uint32_t& years
 	);
-	bool GetDateTime(HwClock::DateTime& dt);
+	bool GetDateTime(HwClock::HwClock_DT& dt);
 	bool GetDateTime(
 		uint32_t& seconds,
 		uint32_t& minutes,
@@ -100,8 +103,6 @@ public:
 	);
 	uint32_t GetEpoch();
 	std::string GetDateTimeString();
-
-private:
 	bool ReadRegister(const unsigned char reg, unsigned char& val);
 	bool ReadRegisters(unsigned char regs[], const unsigned int numRegs);
 	bool WriteRegister(const unsigned char reg, const unsigned char data);
@@ -111,13 +112,18 @@ private:
 private:
 	const unsigned short m_iicDeviceId;
 	const unsigned char m_iicIntrId;
-	const unsigned short m_iicAddress;
-	XIicPs_Config* m_iicConfigPtr;
+	const unsigned short m_rtcGpioDeviceId;
+	const unsigned char m_rtcIntrId;
+	const unsigned int m_iicAddress;
+	XIic_Config* m_iicConfigPtr;
+	XGpio_Config* m_rtcGpioConfigPtr;
 	HwClock::ClockOutFrequency m_clockOutFrequency;
-	XIicPs m_iic;
+	volatile unsigned int m_hwClockIsrCount;
+	XIic m_iic;
+	XGpio m_gpioRtc;
 };
 
-inline HwClock::DateTime::DateTime()
+inline HwClock::HwClock_DT::HwClock_DT()
 {
 	Year = 0U;
 	Month = 0U;
@@ -128,7 +134,7 @@ inline HwClock::DateTime::DateTime()
 	WeekDay = 0U;
 }
 
-inline HwClock::DateTime::DateTime(uint32_t epoch)
+inline HwClock::HwClock_DT::HwClock_DT(uint32_t epoch)
 {
 	uint32_t year;
 	uint32_t month;
@@ -178,7 +184,7 @@ inline HwClock::DateTime::DateTime(uint32_t epoch)
 	Day = epoch + 1;
 }
 
-inline uint32_t HwClock::DateTime::ToEpoch()
+inline uint32_t HwClock::HwClock_DT::ToEpoch()
 {
 	uint32_t Days = 0;
 

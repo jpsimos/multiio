@@ -16,16 +16,13 @@
 
 using namespace Helpers;
 
-static std::vector<Middleware*> sm_middlewarePtrs;
+static std::vector<Middleware*> middlewarePtrs;
 
 void Middleware::LoopRegisteredMiddlewares()
 {
-	for(Middleware* middlewarePtr : sm_middlewarePtrs)
+	for(Middleware* middlewarePtr : middlewarePtrs)
 	{
-		if(!middlewarePtr->m_excludeFromLoop)
-		{
-			middlewarePtr->Loop();
-		}
+		middlewarePtr->Loop();
 	}
 }
 
@@ -35,17 +32,14 @@ void Middleware::Yield(unsigned int timeoutMicros)
 
 	do
 	{
-		for(Middleware* middlewarePtr : sm_middlewarePtrs)
+		for(Middleware* middlewarePtr : middlewarePtrs)
 		{
 			if(timeoutMicros > 0 && timeout > timeoutMicros)
 			{
 				break;
 			}
 
-			if(!middlewarePtr->m_excludeFromLoop)
-			{
-				middlewarePtr->Loop();
-			}
+			middlewarePtr->Loop();
 		}
 	}
 	while(timeoutMicros > 0 && timeout < timeoutMicros);
@@ -55,13 +49,9 @@ int Middleware::ProcessCommandRegisteredMiddlewares(const std::string& command)
 {
 	int result = COMMAND_IGNORE;
 
-	for(Middleware* middlewarePtr : sm_middlewarePtrs)
+	for(Middleware* middlewarePtr : middlewarePtrs)
 	{
-		if(!middlewarePtr->m_excludeFromLoop)
-		{
-			middlewarePtr->m_lastCommandResult = middlewarePtr->ProcessCommand(command);
-			result |= middlewarePtr->m_lastCommandResult;
-		}
+		result |= middlewarePtr->ProcessCommand(command);
 	}
 
 	return result;
@@ -72,9 +62,7 @@ Middleware::Middleware(
 	int priority
 ) :
 	m_abstractType(abstractType),
-	m_nestedPriority(priority),
-	m_excludeFromLoop(false),
-	m_lastCommandResult(COMMAND_IGNORE)
+	m_nestedPriority(priority)
 {
 }
 
@@ -85,12 +73,12 @@ Middleware::AbstractType Middleware::GetAbstractType() const
 
 void Middleware::Register()
 {
-	if(sm_middlewarePtrs.end() == std::find(sm_middlewarePtrs.begin(), sm_middlewarePtrs.end(), this))
+	if(middlewarePtrs.end() == std::find(middlewarePtrs.begin(), middlewarePtrs.end(), this))
 	{
-		sm_middlewarePtrs.push_back(this);
+		middlewarePtrs.push_back(this);
 		std::sort(
-			sm_middlewarePtrs.begin()
-			,sm_middlewarePtrs.end()
+			middlewarePtrs.begin()
+			,middlewarePtrs.end()
 			,[](const Middleware* a, const Middleware* b)
 			{
 				if(a && b)
@@ -106,11 +94,11 @@ void Middleware::Register()
 void Middleware::Unregister()
 {
 	std::vector<Middleware*>::const_iterator thisMiddlewareIter
-		= std::find(sm_middlewarePtrs.begin(), sm_middlewarePtrs.end(), this);
+		= std::find(middlewarePtrs.begin(), middlewarePtrs.end(), this);
 
-	if(sm_middlewarePtrs.end() != thisMiddlewareIter)
+	if(middlewarePtrs.end() != thisMiddlewareIter)
 	{
-		sm_middlewarePtrs.erase(thisMiddlewareIter);
+		middlewarePtrs.erase(thisMiddlewareIter);
 	}
 }
 

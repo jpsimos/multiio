@@ -60,10 +60,6 @@ public:
 		MAGNETOMETER,
 		HMI,
 		NETWORK_MANAGER,
-		PS_GPIO_CONTROLLER,
-		MUTEX_MANAGER,
-		BUTTONS,
-		LEDS,
 		MAX_VALUE
 	};
 
@@ -77,7 +73,7 @@ protected:
 		const Middleware::AbstractType abstractType,
 		const int nestedPriority = MW_PRIORITY_NORMAL
 	);
-	~Middleware() = default;
+	~Middleware() {}
 
 public:
 	Middleware::AbstractType GetAbstractType() const;
@@ -89,7 +85,5 @@ public:
 protected:
 	const Middleware::AbstractType m_abstractType;
 	int m_nestedPriority;
-	bool m_excludeFromLoop;
-	int m_lastCommandResult;
 };
 #endif

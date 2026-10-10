@@ -10,14 +10,15 @@
 #include "xparameters.h"
 #include "HwClock.h"
 #include "InterruptManager.h"
-#include "GpioController.h"
 
 using namespace Helpers;
 
 HwClock* HwClock::CreateInstance(
 	const unsigned short iicDeviceId,
 	const unsigned char iicIntrId,
-	const unsigned short iicAddress
+	const unsigned short rtcGpioDeviceId,
+	const unsigned char rtcIntrId,
+	const unsigned int iicAddress
 )
 {
 	if(nullptr == HwClock::sm_hwClockPtr)
@@ -25,6 +26,8 @@ HwClock* HwClock::CreateInstance(
 		HwClock::sm_hwClockPtr = new HwClock(
 			iicDeviceId,
 			iicIntrId,
+			rtcGpioDeviceId,
+			rtcIntrId,
 			iicAddress
 		);
 	}
@@ -43,37 +46,31 @@ HwClock* HwClock::GetInstance()
 HwClock::HwClock(
 	const unsigned short iicDeviceId,
 	const unsigned char iicIntrId,
-	const unsigned short iicAddress
+	const unsigned short rtcGpioDeviceId,
+	const unsigned char rtcIntrId,
+	const unsigned int iicAddress
 ) :
 	Middleware(Middleware::AbstractType::EXT_HW_CLOCK),
 	m_iicDeviceId(iicDeviceId),
 	m_iicIntrId(iicIntrId),
+	m_rtcGpioDeviceId(rtcGpioDeviceId),
+	m_rtcIntrId(rtcIntrId),
 	m_iicAddress(iicAddress),
-	m_iicConfigPtr(XIicPs_LookupConfig(iicDeviceId)),
-	m_clockOutFrequency(ClockOutFrequency::CLKOUT_UNKNOWN),
-	m_iic()
+	m_iicConfigPtr(XIic_LookupConfig(iicDeviceId)),
+	m_rtcGpioConfigPtr(XGpio_LookupConfig(rtcGpioDeviceId)),
+	m_clockOutFrequency(ClockOutFrequency::CLKOUT_1HZ),
+	m_hwClockIsrCount(0U),
+	m_iic(),
+	m_gpioRtc()
 {
 	int status;
 
-	status = XIicPs_CfgInitialize(&m_iic, m_iicConfigPtr, m_iicConfigPtr->BaseAddress);
+	status = XIic_CfgInitialize(&m_iic, m_iicConfigPtr, m_iicConfigPtr->BaseAddress);
+	status |= XGpio_CfgInitialize(&m_gpioRtc, m_rtcGpioConfigPtr, m_rtcGpioConfigPtr->BaseAddress);
 
 	if(XST_SUCCESS != status)
 	{
-		RUNTIME_ERROR("CfgInitialize = %d", status);
-	}
-
-	GpioController::GetInstance()->SetPinMode(RTC_INTR_PIN, PS_GPIO_IN);
-
-	XIicPs_SetStatusHandler(&m_iic, this, reinterpret_cast<XIicPs_IntrHandler>(HwClock::IicIsr));
-
-	InterruptManager::GetInstance()->Attach(m_iicIntrId,
-		reinterpret_cast<Xil_InterruptHandler>(XIicPs_MasterInterruptHandler), &m_iic, true, 0xA0, false);
-
-	status = XIicPs_SetSClk(&m_iic, 400000);
-
-	if(XST_SUCCESS != status)
-	{
-		RUNTIME_ERROR("SetSClk = %d", status);
+		RUNTIME_ERROR("..._CfgInitialize = %x", status);
 	}
 
 	if(IsBatteryLow())
@@ -83,78 +80,39 @@ HwClock::HwClock(
 
 	if(IsStopped())
 	{
-		std::cout << ANSI_LIGHT_YELLOW "Warning: RTC is stopped." ANSI_RESET "\n";
+		std::cout << ANSI_LIGHT_YELLOW "Warning: RTC is not responsive yet." ANSI_RESET "\n";
 	}
+
+	SetClockOutFrequency(m_clockOutFrequency);
+	XGpio_SetDataDirection(&m_gpioRtc, 1, 1);     // INPUT, ISR
+	XGpio_InterruptGlobalDisable(&m_gpioRtc);
+	XGpio_InterruptDisable(&m_gpioRtc, XGPIO_IR_MASK);
+	InterruptManager::GetInstance()->Attach(
+		m_rtcIntrId,
+		reinterpret_cast<Xil_InterruptHandler>(HwClock::HwClockIsr),
+		this,
+		true,
+		0xA0,
+		true
+	);
+	XGpio_InterruptClear(&m_gpioRtc, XGPIO_IR_MASK);
+	XGpio_InterruptEnable(&m_gpioRtc, XGPIO_IR_CH1_MASK);
+	XGpio_InterruptGlobalEnable(&m_gpioRtc);
 
 	Random::SeedRandom(GetEpoch());
 }
 
 HwClock::~HwClock()
 {
-	XIicPs_Abort(&m_iic);
-	InterruptManager::GetInstance()->Detach(m_iicIntrId);
-}
-
-bool HwClock::BusBusyWait(const unsigned int timeoutMicros)
-{
-	bool stillBusy;
-	Time::Stopwatch timeout;
-
-	do
-	{
-		stillBusy = XIicPs_BusIsBusy(&m_iic);
-
-		if(stillBusy && timeoutMicros > 0)
-		{
-			if(timeout >= timeoutMicros)
-			{
-				break;
-			}
-		}
-	}
-	while(stillBusy);
-
-	return stillBusy;
-}
-
-void HwClock::IicIsr(HwClock* hwClockPtr, unsigned int StatusEvent)
-{
-	if(hwClockPtr != nullptr)
-	{
-		if(StatusEvent & XIICPS_EVENT_COMPLETE_SEND)
-		{
-			nop();
-		}
-
-		if(StatusEvent & XIICPS_EVENT_COMPLETE_RECV)
-		{
-			nop();
-		}
-
-		if(StatusEvent & XIICPS_EVENT_SLAVE_RDY)
-		{
-			nop();
-		}
-
-		if(StatusEvent & XIICPS_EVENT_ERROR)
-		{
-			nop();
-		}
-	}
-}
-
-void HwClock::RtcIsr(HwClock* hwClockPtr)
-{
-	if(hwClockPtr != nullptr)
-	{
-		nop();
-	}
+	XGpio_InterruptDisable(&m_gpioRtc, XGPIO_IR_CH1_MASK);
+	XGpio_InterruptGlobalDisable(&m_gpioRtc);
+	InterruptManager::GetInstance()->Detach(m_rtcIntrId);
 }
 
 int HwClock::ProcessCommand(const std::string& command)
 {
 	int commandResult = COMMAND_IGNORE;
-	HwClock::DateTime dt;
+	HwClock::HwClock_DT dt;
 	unsigned long epoch;
 	int numChars;
 
@@ -176,7 +134,8 @@ int HwClock::ProcessCommand(const std::string& command)
 		{
 			std::cout << "HadPowerLoss = " << HadPowerloss() << "\n"
 				<< "IsBatteryLow = " << IsBatteryLow() << "\n"
-				<< "IsStopped = " << IsStopped() << "\n";
+				<< "IsStopped = " << IsStopped() << "\n"
+				<< "ISRCount = " << m_hwClockIsrCount << "\n";
 			commandResult = COMMAND_OK;
 		}
 		else if(6 == std::sscanf(command.c_str(), "hwclock set %u/%u/%u %u:%u:%u%n",
@@ -193,12 +152,22 @@ int HwClock::ProcessCommand(const std::string& command)
 		else if(std::sscanf(command.c_str(), "hwclock set %lu%n", &epoch, &numChars)
 			&& numChars == static_cast<int>(command.length()))
 		{
-			dt = HwClock::DateTime(static_cast<uint32_t>(epoch));
+			dt = HwClock::HwClock_DT(static_cast<uint32_t>(epoch));
 			commandResult = SetDateTime(dt) ? COMMAND_OK : COMMAND_ERROR;
 		}
 	}
 
 	return commandResult;
+}
+
+void HwClock::HwClockIsr(HwClock* hwClockPtr)
+{
+	if(XGpio_InterruptGetStatus(&(hwClockPtr->m_gpioRtc)) & XGPIO_IR_CH1_MASK)
+	{
+		XGpio_InterruptClear(&(hwClockPtr->m_gpioRtc), XGPIO_IR_CH1_MASK);
+	}
+
+	hwClockPtr->m_hwClockIsrCount += 1U;
 }
 
 bool HwClock::SoftwareReset()
@@ -287,7 +256,7 @@ bool HwClock::SetClockOutFrequency(const ClockOutFrequency freq)
 	return ModifyRegister(15U, 0b00111000, static_cast<unsigned int>(freq) << 3);
 }
 
-bool HwClock::SetDateTime(HwClock::DateTime& dt)
+bool HwClock::SetDateTime(HwClock::HwClock_DT& dt)
 {
 	return SetDateTime(
 		dt.Sec,
@@ -331,7 +300,7 @@ bool HwClock::SetDateTime(
 	return !hadError;
 }
 
-bool HwClock::GetDateTime(HwClock::DateTime& dt)
+bool HwClock::GetDateTime(HwClock::HwClock_DT& dt)
 {
 	return GetDateTime(
 		dt.Sec,
@@ -377,7 +346,7 @@ bool HwClock::GetDateTime(
 
 uint32_t HwClock::GetEpoch()
 {
-	HwClock::DateTime dt;
+	HwClock::HwClock_DT dt;
 
 	GetDateTime(dt);
 
@@ -387,7 +356,7 @@ uint32_t HwClock::GetEpoch()
 std::string HwClock::GetDateTimeString()
 {
 	std::string dateTimeString;
-	HwClock::DateTime dt;
+	HwClock::HwClock_DT dt;
 
 	if(GetDateTime(dt))
 	{
@@ -407,29 +376,58 @@ std::string HwClock::GetDateTimeString()
 
 bool HwClock::ReadRegister(const unsigned char reg, unsigned char& val)
 {
-	bool hadError;
-	int result;
+	bool hadError = false;
+	int status;
+	unsigned int result;
 	unsigned char buffer[2];
 
-	buffer[0] = reg;
-	buffer[1] = 0xFF;
+	status = XIic_IsIicBusy(&m_iic) ? XST_DEVICE_BUSY : XIic_Start(&m_iic);
 
-	hadError = true;
-	result = XIicPs_MasterSendPolled(&m_iic, &buffer[0], 1, m_iicAddress);
-
-	if(XST_SUCCESS == result)
+	if(XST_SUCCESS == status)
 	{
-		result = XIicPs_MasterRecvPolled(&m_iic, &buffer[1], 1, m_iicAddress);
+		status = XIic_SetAddress(&m_iic, XII_ADDR_TO_SEND_TYPE, m_iicAddress);
 
-		if(XST_SUCCESS == result)
+		if(XST_SUCCESS == status)
 		{
-			hadError = false;
+			buffer[0] = reg;
+			buffer[1] = 0xFFU;
+
+			result = XIic_Send(m_iic.BaseAddress, m_iicAddress, (u8*)&buffer[0], 1U, XIIC_STOP);
+
+			if(1U == result)
+			{
+				result = XIic_Recv(m_iic.BaseAddress, m_iicAddress, (u8*)&buffer[1], 1U, XIIC_STOP);
+
+				if(1U == result)
+				{
+					val = buffer[1];
+				}
+				else
+				{
+					hadError = true;
+					DEBUG_ERROR("XIic_Recv = %u", result);
+				}
+			}
+			else
+			{
+				hadError = true;
+				DEBUG_ERROR("XIic_Send = %u", result);
+			}
+		}
+		else
+		{
+			DEBUG_ERROR("XIic_SetAddress = %d", status);
 		}
 	}
-
-	if(!hadError && BusBusyWait(1000000))
+	else
 	{
-		DEBUG_ERROR("Bus is busy.");
+		hadError = true;
+		DEBUG_ERROR("XIic_Start = %d", status);
+	}
+
+	if(hadError)
+	{
+		XIic_Reset(&m_iic);
 	}
 
 	return !hadError;
@@ -437,25 +435,52 @@ bool HwClock::ReadRegister(const unsigned char reg, unsigned char& val)
 
 bool HwClock::ReadRegisters(unsigned char regs[], const unsigned int numRegs)
 {
-	bool hadError;
-	int result;
+	bool hadError = false;
+	unsigned int result;
+	int status;
 
-	hadError = true;
-	result = XIicPs_MasterSendPolled(&m_iic, &regs[0], 1, m_iicAddress);
+	status = XIic_IsIicBusy(&m_iic) ? XST_DEVICE_BUSY : XIic_Start(&m_iic);
 
-	if(XST_SUCCESS == result)
+	if(XST_SUCCESS == status)
 	{
-		result = XIicPs_MasterRecvPolled(&m_iic, &regs[0], (s32)numRegs, m_iicAddress);
+		status = XIic_SetAddress(&m_iic, XII_ADDR_TO_SEND_TYPE, m_iicAddress);
 
-		if(XST_SUCCESS == result)
+		if(XST_SUCCESS == status)
 		{
-			hadError = false;
+			result = XIic_Send(m_iic.BaseAddress, m_iicAddress, (u8*)&regs[0], 1U, XIIC_STOP);
+
+			if(1U == result)
+			{
+				result = XIic_Recv(m_iic.BaseAddress, m_iicAddress, (u8*)&regs[0], numRegs, XIIC_STOP);
+
+				if(numRegs != result)
+				{
+					hadError = true;
+					DEBUG_ERROR("XIic_Recv = %u", result);
+				}
+			}
+			else
+			{
+				hadError = true;
+				DEBUG_ERROR("XIic_Send = %u", result);
+			}
+		}
+		else
+		{
+			hadError = true;
+			DEBUG_ERROR("XIic_SetAddress = %x", status);
 		}
 	}
-
-	if(!hadError && BusBusyWait(1000000))
+	else
 	{
-		DEBUG_ERROR("Bus is busy.");
+		hadError = true;
+		DEBUG_ERROR("XIic_Start = %x", status);
+	}
+
+
+	if(hadError)
+	{
+		XIic_Reset(&m_iic);
 	}
 
 	return !hadError;
@@ -463,24 +488,45 @@ bool HwClock::ReadRegisters(unsigned char regs[], const unsigned int numRegs)
 
 bool HwClock::WriteRegister(const unsigned char reg, const unsigned char data)
 {
-	bool hadError;
+	bool hadError = false;
 	unsigned char buffer[2];
-	int result;
+	unsigned int result;
+	int status;
 
-	buffer[0] = reg;
-	buffer[1] = data;
+	status = XIic_IsIicBusy(&m_iic) ? XST_DEVICE_BUSY : XIic_Start(&m_iic);
 
-	hadError = true;
-	result = XIicPs_MasterSendPolled(&m_iic, &buffer[0], 2, m_iicAddress);
-
-	if(XST_SUCCESS == result)
+	if(XST_SUCCESS == status)
 	{
-		hadError = false;
+		status = XIic_SetAddress(&m_iic, XII_ADDR_TO_SEND_TYPE, m_iicAddress);
+
+		if(XST_SUCCESS == status)
+		{
+			buffer[0] = reg;
+			buffer[1] = data;
+
+			result = XIic_Send(m_iic.BaseAddress, m_iicAddress, (u8*)&buffer[0], 2U, XIIC_STOP);
+
+			if(2U != result)
+			{
+				hadError = true;
+				DEBUG_ERROR("XIic_Send = %u", result);
+			}
+		}
+		else
+		{
+			hadError = true;
+			DEBUG_ERROR("XIic_SetAddress = %d", status);
+		}
+	}
+	else
+	{
+		hadError = true;
+		DEBUG_ERROR("XIic_Start = %x", status);
 	}
 
-	if(!hadError && BusBusyWait(1000000))
+	if(hadError)
 	{
-		DEBUG_ERROR("Bus is busy.");
+		XIic_Reset(&m_iic);
 	}
 
 	return !hadError;
@@ -488,28 +534,48 @@ bool HwClock::WriteRegister(const unsigned char reg, const unsigned char data)
 
 bool HwClock::WriteRegisters(const unsigned char reg, const unsigned char data[], const unsigned int numRegs)
 {
-	bool hadError;
-	int result;
-	unsigned char* buffer;
+	bool hadError = false;
+	std::unique_ptr<unsigned char[]> buffer;
+	int status;
+	unsigned int result;
 
-	buffer = new unsigned char[1 + numRegs];
-	buffer[0] = reg;
-	std::memcpy(&buffer[1], &data[0], numRegs);
+	status = XIic_IsIicBusy(&m_iic) ? XST_DEVICE_BUSY : XIic_Start(&m_iic);
 
-	hadError = true;
-	result = XIicPs_MasterSendPolled(&m_iic, &buffer[0], 1 + numRegs, m_iicAddress);
-
-	if(XST_SUCCESS == result)
+	if(XST_SUCCESS == status)
 	{
-		hadError = false;
+		status = XIic_SetAddress(&m_iic, XII_ADDR_TO_SEND_TYPE, m_iicAddress);
+
+		if(XST_SUCCESS == status)
+		{
+			buffer.reset(new unsigned char[numRegs + 1U]);
+			buffer.get()[0] = reg;
+			std::memcpy(&(buffer.get()[1]), &data[0], numRegs);
+
+			result = XIic_Send(m_iic.BaseAddress,
+				m_iicAddress, (u8*)&buffer[0], numRegs + 1U, XIIC_STOP);
+
+			if(numRegs + 1U != result)
+			{
+				hadError = true;
+				DEBUG_ERROR("XIic_Send = %u", result);
+			}
+		}
+		else
+		{
+			hadError = true;
+			DEBUG_ERROR("XIic_SetAddress = %d", status);
+		}
+	}
+	else
+	{
+		hadError = true;
+		DEBUG_ERROR("XIic_Start = %x", status);
 	}
 
-	if(!hadError && BusBusyWait(1000000))
+	if(!hadError)
 	{
-		DEBUG_ERROR("Bus is busy.");
+		XIic_Reset(&m_iic);
 	}
-
-	delete[] buffer;
 
 	return !hadError;
 }

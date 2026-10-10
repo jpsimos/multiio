@@ -41,8 +41,8 @@
 #define CRC16_XOR                                0x0000
 
 // ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖  Instruction Macros ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖
-#define nop()                               __asm__ __volatile__("nop")
-#define sev()                               __asm__ __volatile__("sev" : : : "memory")
+#define nop()                               __asm__ __volatile__("nop");
+#define sev()                               __asm__ __volatile__("sev" : : : "memory");
 #define ISPOWEROF2(x)                       !(((x) != 0) && ((x) & ((x) - 1)))
 #define ISODD(x)                            !!((x) & 1)
 #define ISEVEN(x)                           !!((~(x)) & 1)
@@ -93,7 +93,6 @@
 
 // ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖  Symbols  ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖
 #define DEGREE_SYMBOL          "\xc2\xb0"
-#define MU_SYMBOL              "\xce\xbc"
 
 // ⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖⧖
 
@@ -158,13 +157,10 @@ namespace Helpers
 		long long Micros();
 		long long Millis();
 		double Seconds();
-		double MicrosToSeconds(const long long micros);
-		double MillisToSeconds(const long long millis);
+		double MicrosToSeconds(long long micros);
+		double MillisToSeconds(long long millis);
 		long long SecondsToMicros(double seconds);
-		long long SecondsToMillis(const double seconds);
-		void SleepMicros(const long long micros);
-		void SleepMillis(const long long millis);
-		void SleepSeconds(const double seconds);
+		long long SecondsToMillis(double seconds);
 
 		class Stopwatch
 		{
@@ -175,7 +171,7 @@ namespace Helpers
 			Stopwatch(const long long micros);
 			Stopwatch(const unsigned long long micros);
 			Stopwatch(const double seconds);
-			~Stopwatch() = default;
+			~Stopwatch() {}
 			void Reset();
 			void Set(const long long micros);
 			void Set(const unsigned long long micros);
