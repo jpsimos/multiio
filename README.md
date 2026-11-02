@@ -110,6 +110,7 @@ The application is self-contained and does not require an OS.
 - USB ULPI self-test is available.
 - Dual-core startup and OCM configuration are implemented.
 - SD card controller sources are present but not yet instantiated in `Core0`.
+- SpiFlash middleware lazily merged from my private code. Onboard QSPI controller is compatable with the middleware.
 
 ## License
 
