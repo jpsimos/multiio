@@ -2,13 +2,13 @@
 
 Custom bare-metal firmware and software for the **Microphase Z7-Lite** (Xilinx Zynq-7000, `xc7z010clg400-1`).
 
-This repository is a modular, no-OS (standalone) application developed for **Vivado / Vitis 2024.2**. It serves as a hardware bring-up and feature-validation platform before porting to PetaLinux or Buildroot. The design emphasizes clean component isolation through a lightweight Middleware framework, interrupt-driven peripherals, and dual-core capable memory layout.
+This repository is a modular, no-OS (standalone) application developed exclusively for **Vivado / Vitis 2024.2**. It serves as a hardware bring-up and feature-validation platform before porting to PetaLinux or Buildroot. The design emphasizes clean component isolation through a lightweight Middleware framework, interrupt-driven peripherals, and dual-core capable memory layout.
 
-> **Important**: Code and platform files are written for the 2024.2 tool chain. Older tool versions are not supported.
+> **Important**: Code and platform files are written for the 2024.2 tool chain only. Older tool versions are not supported and will not work.
 
 ## Branch: `can`
 
-This branch provides a working multi-peripheral test platform centered on the Processing System CAN controllers, with UART console, RTC, and USB support integrated through the Middleware system.
+This branch provides a working multi-peripheral test platform centered on the Processing System CAN controllers, with UART console, RTC, USB, and QSPI flash support integrated through the Middleware system.
 
 ### Currently Active Subsystems (Core0)
 
@@ -40,12 +40,12 @@ can <deviceId> test
 
 UART lines are parsed and dispatched to all registered middlewares.
 
-| Prefix   | Commands (examples)                  | Status                  |
-|----------|--------------------------------------|-------------------------|
-| `can`    | `status`, `test`                     | Active (both controllers) |
-| `usb`    | `test` (ULPI VID/PID + scratch)      | Active                  |
+| Prefix   | Commands (examples)                  | Status                              |
+|----------|--------------------------------------|-------------------------------------|
+| `can`    | `status`, `test`                     | Active (both controllers)           |
+| `usb`    | `test` (ULPI VID/PID + scratch)      | Active                              |
 | `sd`     | `status`, `mount`, `unmount`, `ls`   | Code present, not yet registered in Core0 |
-| (UART)   | line-based command entry             | Active console          |
+| (UART)   | line-based command entry             | Active console                      |
 
 ### Architecture
 
@@ -56,6 +56,7 @@ UART lines are parsed and dispatched to all registered middlewares.
 | `UartController`       | PS UART console that reads lines and dispatches commands. |
 | `UsbController`        | PS USB device controller with ULPI register access and self-test. |
 | `SdCardController`     | PS SD card + FatFs mount/status/list (present but not yet started). |
+| `SpiFlash`             | QSPI flash middleware (compatible with onboard QSPI controller). |
 | `InterruptManager`     | Centralized SCU GIC setup, attach/detach, priority, and enable/disable. |
 | `HwClock`              | RTC driver (AXI IIC + GPIO interrupt). |
 | `LiteQueue`            | Fixed-capacity, cache-friendly queue template used for ISR-to-task communication. |
@@ -75,11 +76,11 @@ The custom linker script (`lscript.ld`) partitions DDR:
 
 ## Building (Vitis 2024.2)
 
-1. Create a Vivado 2024.2 hardware platform for the Microphase Z7-Lite that includes the PS CAN (both instances), PS UART, PS USB, AXI IIC (RTC), AXI GPIO (RTC interrupt), and PS SD if you enable the SD controller.
+1. Create a Vivado 2024.2 hardware platform for the Microphase Z7-Lite that includes the PS CAN (both instances), PS UART, PS USB, AXI IIC (RTC), AXI GPIO (RTC interrupt), PS QSPI, and PS SD if you enable the SD controller.
 2. Export the platform / XSA and create a Vitis bare-metal application project targeting the Cortex-A9.
 3. Replace the default linker script with `lscript.ld` and the startup specification with `Xilinx.spec`.
 4. Add all source files from this branch (including the `usb/` directory).
-5. Ensure `xparameters.h` matches the hardware platform (especially CAN device/interrupt IDs, UART, USB, IIC, and GPIO).
+5. Ensure `xparameters.h` matches the hardware platform (especially CAN device/interrupt IDs, UART, USB, IIC, GPIO, and QSPI).
 
 The application is self-contained and does not require an OS.
 
@@ -92,6 +93,7 @@ The application is self-contained and does not require an OS.
 ├── UartController.cpp / .h     # Console / command dispatcher
 ├── UsbController.cpp / .h      # PS USB + ULPI
 ├── SdCardController.cpp / .h   # PS SD + FatFs (not yet started)
+├── SpiFlash.cpp / .h           # QSPI flash middleware
 ├── Middleware.cpp / .h         # Component framework
 ├── InterruptManager.cpp / .h
 ├── HwClock.cpp / .h            # RTC
@@ -99,7 +101,8 @@ The application is self-contained and does not require an OS.
 ├── Helpers.cpp / .h
 ├── usb/                        # USB PS supporting sources
 ├── lscript.ld                  # Dual-core linker script
-└── Xilinx.spec
+├── Xilinx.spec
+└── README.md
 ```
 
 ## Status
@@ -110,7 +113,7 @@ The application is self-contained and does not require an OS.
 - USB ULPI self-test is available.
 - Dual-core startup and OCM configuration are implemented.
 - SD card controller sources are present but not yet instantiated in `Core0`.
-- SpiFlash middleware lazily merged from my private code. Onboard QSPI controller is compatable with the middleware.
+- SpiFlash middleware is included and compatible with the onboard QSPI controller.
 
 ## License
 
