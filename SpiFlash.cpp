@@ -81,14 +81,16 @@ int SpiFlash::ProcessCommand(const std::string& command)
 		{
 			commandResult = Erase(0, SpiFlash::EraseType::CHIP) ? COMMAND_OK : COMMAND_ERROR;
 		}
-		else if(2 == std::sscanf(command.c_str(), "nor erase %x %x", &address, &numBytes))
+		else if(2 == std::sscanf(command.c_str(), "nor erase %x %x", &address, &numBytes)
+			&& command.length() == numBytes)
 		{
 			std::cout << "Erasing at 0x" << std::hex << address << " to 0x"
 					<< std::hex << (address + numBytes) << "...\n";
 
 			commandResult = EraseArea(address, numBytes) ? COMMAND_OK : COMMAND_ERROR;
 		}
-		else if(2 == std::sscanf(command.c_str(), "nor read %x %x", &address, &numBytes))
+		else if(2 == std::sscanf(command.c_str(), "nor read %x %x", &address, &numBytes)
+			&& command.length() == numBytes)
 		{
 			std::unique_ptr<unsigned char[]> readBuffer(new unsigned char[numBytes]);
 			const unsigned int numBytesRead = Read(address, readBuffer.get(), numBytes);
@@ -102,7 +104,8 @@ int SpiFlash::ProcessCommand(const std::string& command)
 
 			commandResult = numBytes == numBytesRead ? COMMAND_OK : COMMAND_ERROR;
 		}
-		else if(2 == std::sscanf(command.c_str(), "nor crc %x %x", &address, &numBytes))
+		else if(2 == std::sscanf(command.c_str(), "nor crc %x %x", &address, &numBytes)
+			&& command.length() == numBytes)
 		{
 			std::unique_ptr<unsigned char[]> readBuffer(new unsigned char[numBytes]);
 			const unsigned int numBytesRead = Read(address, readBuffer.get(), numBytes);
