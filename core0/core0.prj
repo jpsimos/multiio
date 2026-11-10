@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="ASCII"?>
+<sdkproject:SdkProject xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:sdkproject="http://www.xilinx.com/sdkproject" name="core0" location="/home/jacobpsimos/MultiIO/Vitis/Workspace/core0" platform="/home/jacobpsimos/MultiIO/Vitis/Workspace/multiio_platform/export/multiio_platform/multiio_platform.xpfm" platformUID="xilinx:::0.0(custom)" systemProject="multiio_system" sysConfig="multiio_platform" runtime="cpp" cpu="cortexa9_0_domain" cpuInstance="ps7_cortexa9_0" os="standalone" language="CPP" mssSignature="1a6426b495a1b5f2e56a895e48d229fb">
+  <configuration name="Debug" id="xilinx.gnu.armv7.exe.debug.471642615">
+    <configBuildOptions xsi:type="sdkproject:SdkOptions"/>
+    <lastBuildOptions xsi:type="sdkproject:SdkOptions"/>
+  </configuration>
+  <configuration name="Release" id="xilinx.gnu.armv7.exe.release.1803499463" dirty="true">
+    <configBuildOptions xsi:type="sdkproject:SdkOptions"/>
+  </configuration>
+  <template appTemplateName="empty_application"/>
+</sdkproject:SdkProject>
