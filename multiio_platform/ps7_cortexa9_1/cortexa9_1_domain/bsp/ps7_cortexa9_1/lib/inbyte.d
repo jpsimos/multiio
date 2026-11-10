@@ -1,0 +1,8 @@
+../../../lib/inbyte.o: inbyte.c ../../../include/xparameters.h \
+ ../../../include/xparameters_ps.h ../../../include/xcoresightpsdcc.h \
+ xil_types.h bspconfig.h
+../../../include/xparameters.h:
+../../../include/xparameters_ps.h:
+../../../include/xcoresightpsdcc.h:
+xil_types.h:
+bspconfig.h:

@@ -1,0 +1,8 @@
+/*multiio_platform*/
+the_ROM_image:
+{
+  [bootloader]<multiio_platform/boot/fsbl.elf>
+   <bitstream> 
+  <elf,ps7_cortexa9_0>
+  <elf,ps7_cortexa9_1>
+}

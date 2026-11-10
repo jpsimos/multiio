@@ -1,0 +1,25 @@
+2025-10-08T01:11:01.3417400255-01:11:01 **** Incremental Build of configuration Debug for project core0 ****
+000-make all 
+000-make --no-print-directory pre-build
+000-a9-linaro-pre-build-step
+000- 
+000-make --no-print-directory main-build
+000-Building file: ../src/Main.cpp
+000-Invoking: ARM v7 g++ compiler
+000-arm-none-eabi-g++ -DMULTIIO_DEBUG -Wall -O0 -g3 -c -fmessage-length=0 -MT"src/Main.o" -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard --std=c++20 -I/home/jacobpsimos/MultiIO/Vitis/Workspace/multiio_platform/export/multiio_platform/sw/multiio_platform/cortexa9_0_domain/bspinclude/include -MMD -MP -MF"src/Main.d" -MT"src/Main.o" -o "src/Main.o" "../src/Main.cpp"
+000-Finished building: ../src/Main.cpp
+000- 
+000-Building target: core0.elf
+000-Invoking: ARM v7 g++ linker
+000-arm-none-eabi-g++ -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard -Wl,-build-id=none -specs=Xilinx.spec -Wl,-T -Wl,../src/lscript.ld -L/home/jacobpsimos/MultiIO/Vitis/Workspace/multiio_platform/export/multiio_platform/sw/multiio_platform/cortexa9_0_domain/bsplib/lib -o "core0.elf" ./src/CpuMailbox.o ./src/CpuMessage.o ./src/Helpers.o ./src/HmiController.o ./src/HwClock.o ./src/InterruptManager.o ./src/LiteQueue.o ./src/Main.o ./src/Middleware.o ./src/Platform.o ./src/PowerController.o ./src/Terminal.o   -Wl,--start-group,-lxil,-lgcc,-lc,-lstdc++,--end-group
+000-Finished building target: core0.elf
+000- 
+000-Invoking: ARM v7 Print Size
+000-arm-none-eabi-size core0.elf  |tee "core0.elf.size"
+000-   text	   data	    bss	    dec	    hex	filename
+000- 762983	   3280	39469936	40236199	265f4a7	core0.elf
+000-Finished building: core0.elf.size
+000- 
+00255-
+01:11:03 Build Finished (took 2s.496ms)
+

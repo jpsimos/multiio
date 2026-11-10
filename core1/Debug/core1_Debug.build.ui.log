@@ -1,0 +1,10 @@
+2025-10-08T01:10:59.03280400255-01:10:59 **** Incremental Build of configuration Debug for project core1 ****
+000-make all 
+000-make --no-print-directory pre-build
+000-a9-linaro-pre-build-step
+000- 
+000-make --no-print-directory main-build
+000-make[1]: Nothing to be done for 'main-build'.
+00255-
+01:10:59 Build Finished (took 639ms)
+

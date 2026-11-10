@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="ASCII"?>
+<systemproject:SystemProject xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:sdkproject="http://www.xilinx.com/sdkproject" xmlns:systemproject="http://www.xilinx.com/systemproject" name="multiio_system" platform="/home/jacobpsimos/MultiIO/Vitis/Workspace/multiio_platform/export/multiio_platform/multiio_platform.xpfm" platformUID="xilinx:::0.0(custom)" sysConfig="multiio_platform" runtime="cpp" rootFSLocation="" linuxImage="" sysroot="">
+  <configuration name="Debug" id="com.xilinx.sdx.system.managedbuilder.debugConfiguration.937603024">
+    <configBuildOptions xsi:type="systemproject:SystemOptions">
+      <applications name="core0" domainName="cortexa9_0_domain" domainPrettyName="cortexa9_0_domain" appBuildConfig="Debug"/>
+      <applications name="core1" domainName="cortexa9_1_domain" domainPrettyName="cortexa9_1_domain" appBuildConfig="Debug"/>
+      <options xsi:type="sdkproject:SdkOptions" generateSdCard="true"/>
+    </configBuildOptions>
+    <lastBuildOptions xsi:type="systemproject:SystemOptions">
+      <applications name="core0" domainName="cortexa9_0_domain" domainPrettyName="cortexa9_0_domain" appBuildConfig="Debug"/>
+      <applications name="core1" domainName="cortexa9_1_domain" domainPrettyName="cortexa9_1_domain" appBuildConfig="Debug"/>
+      <options xsi:type="sdkproject:SdkOptions" generateSdCard="true"/>
+    </lastBuildOptions>
+  </configuration>
+  <configuration name="Release" id="com.xilinx.sdx.system.managedbuilder.releaseConfiguration.1784179538">
+    <configBuildOptions xsi:type="systemproject:SystemOptions">
+      <applications name="core0" domainName="cortexa9_0_domain" domainPrettyName="cortexa9_0_domain" appBuildConfig="Release"/>
+      <applications name="core1" domainName="cortexa9_1_domain" domainPrettyName="cortexa9_1_domain" appBuildConfig="Release"/>
+      <options xsi:type="sdkproject:SdkOptions" generateSdCard="true"/>
+    </configBuildOptions>
+  </configuration>
+</systemproject:SystemProject>
