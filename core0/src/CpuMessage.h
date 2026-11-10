@@ -43,8 +43,16 @@ class CpuMessage
 		};
 
 		/*  Begin CpuMessage Type Prototypes  */
-
+		
+		struct Cpu1LoadedMessage
+		{
+			// Indicates the CPU 1 has loaded.
+		};
+		
+		// ...
+		
 		/*  End Of CpuMessage Type Prototypes  */
+		
 
 		struct MessageHeader
 		{
@@ -59,7 +67,8 @@ class CpuMessage
 		{
 			union
 			{
-
+				Cpu1LoadedMessage u_cpu1LoadedMessage;
+				// ...
 			};
 		};
 
